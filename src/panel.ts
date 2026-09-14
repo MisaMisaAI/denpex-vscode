@@ -255,9 +255,10 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             if (!q || !q.question) { return ''; }
             const opts = (q.options || []).filter((o) => o && o.label).map((o) => {
                 const rec = o.recommended && q.kind === 'action' ? ' <em>(Recommended)</em>' : '';
-                const detail = o.detail ? ` <span class="dim">${escapeHtml(o.detail)}</span>` : '';
                 const recClass = o.recommended ? ' choice-recommended' : '';
-                return `<li><button class="btn choice-btn${recClass}" data-cmd="selectClarifyingChoice" data-text="${escapeHtml(o.label || '')}" data-reason="${escapeHtml(o.detail || '')}">${escapeHtml(o.label || '')}${rec}</button>${detail}</li>`;
+                const detail = o.detail ? ` <span class="dim">${escapeHtml(o.detail)}</span>` : '';
+                const cmdBtn = o.command ? ` <button class="btn ghost btn-sm" data-cmd="insertInTerminal" data-text="${escapeHtml(o.command)}" title="Insert check command at terminal prompt">$</button>` : '';
+                return `<li><button class="btn choice-btn${recClass}" data-cmd="selectClarifyingChoice" data-qid="${escapeHtml(q.id || '')}" data-oid="${escapeHtml(o.id || '')}" data-question="${escapeHtml(q.question || '')}" data-text="${escapeHtml(o.label || '')}" data-reason="${escapeHtml(o.detail || '')}">${escapeHtml(o.label || '')}${rec}</button>${cmdBtn}${detail}</li>`;
             }).join('');
             const note = q.kind === 'fact'
                 ? `<p class="dim">Answer only from what you saw. Say you do not know rather than guessing.</p>`
@@ -413,6 +414,9 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             e.preventDefault();
             vscode.postMessage({
                 command: el.dataset.cmd,
+                qid: el.dataset.qid || '',
+                oid: el.dataset.oid || '',
+                question: el.dataset.question || '',
                 text: el.dataset.text || '',
                 reason: el.dataset.reason || '',
             });
@@ -434,7 +438,7 @@ let currentPanel: vscode.WebviewPanel | undefined;
 
 export function showDiagnosisPanel(
     d: DiagnoseResponse,
-    onMessage: (message: { command: string; text?: string; reason?: string }) => void,
+    onMessage: (message: { command: string; text?: string; reason?: string; qid?: string; oid?: string; question?: string }) => void,
     focusSection?: string,
 ): vscode.WebviewPanel {
     if (currentPanel) {

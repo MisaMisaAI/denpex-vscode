@@ -674,7 +674,10 @@ function openPanel(result: DiagnoseResponse, focusSection?: string): void {
                 break;
             case 'selectClarifyingChoice':
                 if (lastLogs && message.text) {
-                    const refinedPrompt = `${lastLogs}\n\n[Operator Observation]: ${message.text}${message.reason ? ` (${message.reason})` : ''}`;
+                    const answerLine = message.qid && message.oid
+                        ? `- ${message.qid}: ${message.oid}`
+                        : `- ${message.question ? `${message.question} ` : ''}${message.text}${message.reason ? ` (${message.reason})` : ''}`.trim();
+                    const refinedPrompt = `${lastLogs}\n\n## Operator answers\n${answerLine}`;
                     lastLogs = refinedPrompt;
                     void runDiagnosis(refinedPrompt, 'clarifying-refinement');
                 }

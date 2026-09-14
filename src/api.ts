@@ -51,7 +51,7 @@ export interface FixPayload {
         id?: string;
         kind?: 'fact' | 'action';
         question?: string;
-        options?: Array<{ id?: string; label?: string; detail?: string; recommended?: boolean }>;
+        options?: Array<{ id?: string; label?: string; detail?: string; recommended?: boolean; command?: string }>;
         command?: string;
     }>;
     /**
