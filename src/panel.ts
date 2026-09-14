@@ -57,10 +57,10 @@ function str(value: unknown): string | undefined {
 
 function actionBlock(label: string, command: string | null | undefined, kind: 'exec' | 'copy' = 'exec'): string {
     if (!command) return '';
-    const btn = kind === 'exec'
-        ? `<button class="btn" data-cmd="runInTerminal" data-text="${escapeHtml(command)}">▶ Execute</button>`
+    const btns = kind === 'exec'
+        ? `<button class="btn" data-cmd="runInTerminal" data-text="${escapeHtml(command)}">▶ Execute</button><button class="btn ghost" data-cmd="insertInTerminal" data-text="${escapeHtml(command)}" title="Insert at terminal prompt without executing">$ Insert</button>`
         : '';
-    return `<div class="action"><div class="action-head"><strong>${escapeHtml(label)}</strong><span class="btns">${btn}<button class="btn ghost" data-cmd="copy" data-text="${escapeHtml(command)}">Copy</button></span></div>${pre(command)}</div>`;
+    return `<div class="action"><div class="action-head"><strong>${escapeHtml(label)}</strong><span class="btns">${btns}<button class="btn ghost" data-cmd="copy" data-text="${escapeHtml(command)}">Copy</button></span></div>${pre(command)}</div>`;
 }
 
 function confidenceBar(confidence: number): string {
@@ -91,10 +91,21 @@ export function generateIncidentMarkdown(d: DiagnoseResponse): string {
         lines.push(`- **Impact**: ${d.costHeadline}`);
     }
 
+    if (d.resumeSafetyNote) {
+        lines.push(`- **Checkpoint Safety**: ${d.resumeSafetyNote}`);
+    }
+
     if (fix.action) {
         lines.push('\n#### Recommended Fix');
         lines.push('```bash');
         lines.push(fix.action);
+        lines.push('```');
+    }
+
+    if (fix.fallbackAction) {
+        lines.push('\n#### Fallback Action');
+        lines.push('```bash');
+        lines.push(fix.fallbackAction);
         lines.push('```');
     }
 
@@ -126,10 +137,10 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
         || /offline|local/i.test(String(d.source || meta.source || ''));
     const nextActionHtml = isLocal
         ? `<div class="next-actions" aria-label="Optional next actions">
-            <button class="btn cloud" data-cmd="escalateCloud">Run cloud deep reasoning</button>
-            <button class="btn ghost" data-cmd="startInEditorTrial">Unlock 30-day Scale trial (in-editor)</button>
+            <button class="btn cloud" data-cmd="escalateCloud">🚀 Run Cloud Deep Reasoning (3 free passes)</button>
             <button class="btn ghost" data-cmd="copyIncidentReport">📋 Copy Slack/PR Report</button>
-            <span class="meta">Optional. Local diagnosis remains unlimited, offline, and private.</span>
+            <button class="btn ghost" data-cmd="startInEditorTrial">Unlock 30-Day Scale Trial</button>
+            <span class="meta">Local diagnosis is free, unlimited, and private. Cloud adds multi-node reasoning across cluster hosts.</span>
         </div>`
         : `<div class="next-actions">
             <button class="btn ghost" data-cmd="copyIncidentReport">📋 Copy Slack/PR Report</button>
@@ -245,12 +256,13 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             const opts = (q.options || []).filter((o) => o && o.label).map((o) => {
                 const rec = o.recommended && q.kind === 'action' ? ' <em>(Recommended)</em>' : '';
                 const detail = o.detail ? ` <span class="dim">${escapeHtml(o.detail)}</span>` : '';
-                return `<li>${escapeHtml(o.label || '')}${rec}${detail}</li>`;
+                const recClass = o.recommended ? ' choice-recommended' : '';
+                return `<li><button class="btn choice-btn${recClass}" data-cmd="selectClarifyingChoice" data-text="${escapeHtml(o.label || '')}" data-reason="${escapeHtml(o.detail || '')}">${escapeHtml(o.label || '')}${rec}</button>${detail}</li>`;
             }).join('');
             const note = q.kind === 'fact'
                 ? `<p class="dim">Answer only from what you saw. Say you do not know rather than guessing.</p>`
                 : '';
-            return `<p><strong>${escapeHtml(q.question)}</strong></p><ul>${opts}</ul>${note}`;
+            return `<p><strong>${escapeHtml(q.question)}</strong></p><ul class="choice-list">${opts}</ul>${note}`;
         }).join('')}</div>`
         : '';
     const questions = (fix.clarifyingQuestions || []).filter(Boolean);
@@ -330,6 +342,10 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     .btn:hover { background: var(--vscode-button-hoverBackground); }
     .btn.ghost { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
     .btn.cloud { margin-left: 0; font-weight: 600; }
+    .choice-list { list-style: none; padding-left: 0; margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+    .choice-list li { display: flex; align-items: center; gap: 8px; }
+    .choice-btn { margin-left: 0 !important; font-size: 0.9em; padding: 4px 10px; }
+    .choice-recommended { border: 1px solid var(--vscode-testing-iconPassed); background: var(--vscode-button-background); }
     .next-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; padding: 10px 12px; border: 1px solid var(--vscode-focusBorder); border-radius: 6px; }
     .next-actions .btn { margin-left: 0; }
     .action { margin: 10px 0; }
@@ -395,7 +411,11 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             const el = e.target.closest('[data-cmd]');
             if (!el) return;
             e.preventDefault();
-            vscode.postMessage({ command: el.dataset.cmd, text: el.dataset.text || '' });
+            vscode.postMessage({
+                command: el.dataset.cmd,
+                text: el.dataset.text || '',
+                reason: el.dataset.reason || '',
+            });
         });
         const focusSection = ${JSON.stringify(focusSection || '')};
         if (focusSection) {
@@ -410,17 +430,30 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
 </html>`;
 }
 
+let currentPanel: vscode.WebviewPanel | undefined;
+
 export function showDiagnosisPanel(
     d: DiagnoseResponse,
-    onMessage: (message: { command: string; text?: string }) => void,
+    onMessage: (message: { command: string; text?: string; reason?: string }) => void,
     focusSection?: string,
 ): vscode.WebviewPanel {
+    if (currentPanel) {
+        currentPanel.title = `Denpex: ${d.meta?.failureType || 'Diagnosis'}`;
+        currentPanel.webview.html = renderDiagnosis(d, focusSection);
+        currentPanel.reveal(vscode.ViewColumn.Beside, true);
+        return currentPanel;
+    }
+
     const panel = vscode.window.createWebviewPanel(
         'denpexDiagnosis',
         `Denpex: ${d.meta?.failureType || 'Diagnosis'}`,
-        vscode.ViewColumn.Two,
-        { enableScripts: true, localResourceRoots: [] },
+        vscode.ViewColumn.Beside,
+        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
     );
+    currentPanel = panel;
+    panel.onDidDispose(() => {
+        if (currentPanel === panel) currentPanel = undefined;
+    });
     panel.webview.html = renderDiagnosis(d, focusSection);
     panel.webview.onDidReceiveMessage(onMessage);
     return panel;

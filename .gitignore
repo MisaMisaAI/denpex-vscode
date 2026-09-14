@@ -1,5 +1,13 @@
-node_modules/
-out/
-*.vsix
-.DS_Store
+# The bundled offline engine is a BUILD ARTIFACT copied from agent/denpex_canonical.mjs
+# by scripts/bundle-engine.js during `npm run compile`. It is ~7 MB and byte-identical to
+# its source, so committing it would store the same bytes twice and guarantee the two
+# drift apart. It ships in the .vsix (see .vscodeignore, which deliberately does NOT
+# ignore it) and is regenerated on every build.
+#
+# worker/__tests__/vscode-offline-engine.test.ts skips when it is absent and FAILS when it
+# is present but stale, which is the property that actually matters.
+engine/
 
+# Packaged extensions - build outputs, and previously they were being packaged into each
+# other because there was no .vscodeignore.
+*.vsix

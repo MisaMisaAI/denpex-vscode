@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0
+
+- Local-First Default Architecture: All routine diagnoses run locally on the bundled offline engine in 400ms for free forever with zero server spend and zero token waste.
+- 3 Cloud Deep Reasoning Passes: Cloud LLM multi-node reasoning is reserved on-demand for complex cluster crashes via a prominent action button, protecting free passes from being wasted on trivial test errors.
+- Interactive Clickable Clarifying Questions: Clarifying questions in the diagnosis panel are now interactive multiple-choice buttons with recommended actions highlighted, enabling instant one-click diagnosis refinement.
+- Zero-Prompt Terminal Link Clicks: Clicking a detected error link in any terminal immediately runs diagnosis on the clicked line and context without prompting "where are the crash logs?".
+- Expanded Error Pattern Coverage: Terminal error detection coverage more than doubles across real-world ML crash logs, adding support for PyTorch RuntimeError, Horovod, Torchrun ChildFailedError, Ray, vLLM, and Slurm cancellations.
+- Single Reused Webview Tab: Prevents editor clutter by reusing and revealing the existing diagnosis tab rather than opening multiple duplicate tabs.
+- "Insert at Terminal Prompt" ($): Added staged command insertion button alongside Execute and Copy, allowing cautious engineers to stage remediation commands at their shell prompt without executing.
+- Quick Diagnostics Status Bar Menu: Clicking the status bar item opens a quick-pick menu for clipboard diagnosis, workspace Slurm log scans, demo failures, and trial unlocks.
+
 ## 1.3.9
 
 - Adds interactive Terminal Link Provider (DenpexTerminalLinkProvider). CUDA OOM, NCCL timeouts, Xid crashes, and vLLM errors in any terminal output become one-click clickable diagnosis links.

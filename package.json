@@ -1,8 +1,8 @@
 {
   "name": "denpex-diagnostics",
   "displayName": "Denpex. GPU & ML Crash Diagnostics",
-  "description": "Diagnose CUDA, NCCL, PyTorch, Xid, Slurm, Kubernetes, vLLM, DeepSpeed, H100/A100, and RunPod/Lambda GPU crash logs. Interactive terminal links; unlimited offline engine.",
-  "version": "1.3.9",
+  "description": "Diagnose CUDA, NCCL, PyTorch, Xid, Slurm, Kubernetes, vLLM, DeepSpeed, H100/A100, and RunPod/Lambda GPU crash logs. Interactive terminal links; unlimited offline engine; 3 cloud passes.",
+  "version": "1.4.0",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",
@@ -198,6 +198,10 @@
       {
         "command": "denpex.scanClusterLogs",
         "title": "Denpex: Scan Workspace for Slurm/GPU Cluster Logs"
+      },
+      {
+        "command": "denpex.showStatusBarMenu",
+        "title": "Denpex: Quick Diagnostics Menu"
       }
     ],
     "keybindings": [
@@ -358,12 +362,12 @@
             "cloud"
           ],
           "enumDescriptions": [
-            "Full power cloud deep reasoning (3 free out of the box, or plan quota), with seamless offline fallback if unreachable.",
+            "Local-first default (instant, unlimited, offline). Offer cloud deep reasoning with 3 free passes for complex multi-node failures.",
             "Local only. Unlimited and offline. Nothing ever leaves this machine.",
-            "Always use the cloud engine. Uses your plan quota or free cloud analyses."
+            "Always use the cloud engine. Uses your plan quota or free cloud passes."
           ],
           "default": "auto",
-          "markdownDescription": "Which engine answers a diagnose command. **auto** uses full-power cloud deep reasoning (3 free diagnoses out of the box, then 30-day Scale upgrade via work email) with offline fallback; **local** is unlimited and offline; **cloud** uses cloud deep reasoning."
+          "markdownDescription": "Which engine answers a diagnose command. **auto** is local-first default (instant, unlimited, offline) with on-demand cloud passes; **local** is unlimited and offline; **cloud** uses cloud deep reasoning."
         },
         "denpex.cloud.autoEscalate": {
           "type": "boolean",

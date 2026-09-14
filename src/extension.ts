@@ -55,8 +55,8 @@ export async function activate(context: vscode.ExtensionContext) {
     // ── Status bar: plan + remaining quota ──
     statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
     statusItem.text = '$(pulse) Denpex';
-    statusItem.tooltip = 'Denpex ML Diagnostics, click to diagnose';
-    statusItem.command = 'denpex.diagnoseTerminal';
+    statusItem.tooltip = 'Denpex ML Diagnostics, click for menu';
+    statusItem.command = 'denpex.showStatusBarMenu';
     statusItem.show();
     context.subscriptions.push(statusItem);
     void refreshStatusBar();
@@ -98,6 +98,25 @@ export async function activate(context: vscode.ExtensionContext) {
         if (picked) {
             const doc = await vscode.workspace.openTextDocument(picked.uri);
             await runDiagnosis(doc.getText(), `cluster:${picked.label}`);
+        }
+    });
+
+    register('denpex.showStatusBarMenu', async () => {
+        const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
+        const hasKey = Boolean(apiKey());
+        const cloudLabel = hasKey ? 'Plan Quota Active' : `${remaining} free passes remaining`;
+
+        const picked = await vscode.window.showQuickPick([
+            { label: '$(clippy) Paste & Diagnose Clipboard', description: 'Ctrl+Alt+D / Cmd+Alt+D', cmd: 'denpex.diagnoseClipboard' },
+            { label: '$(terminal) Diagnose Terminal Error', description: 'Diagnose latest terminal traceback', cmd: 'denpex.diagnoseTerminal' },
+            { label: '$(search) Scan Workspace for Slurm/Cluster Logs', description: 'Find slurm-*.out and GPU error logs', cmd: 'denpex.scanClusterLogs' },
+            { label: '$(cloud) Run Cloud Deep Reasoning', description: cloudLabel, cmd: 'denpex.diagnoseCloud' },
+            { label: '$(beaker) Try a Demo Failure', description: 'NCCL OOM cascade, Xid 79, vLLM cache', cmd: 'denpex.runSample' },
+            { label: '$(rocket) Unlock 30-Day Scale Trial', description: '50 cloud diagnoses/day for your team', cmd: 'denpex.startInEditorTrial' },
+        ], { placeHolder: 'Denpex GPU & ML Crash Diagnostics' });
+
+        if (picked && picked.cmd) {
+            await vscode.commands.executeCommand(picked.cmd);
         }
     });
 
@@ -225,8 +244,12 @@ export async function activate(context: vscode.ExtensionContext) {
     });
     context.subscriptions.push(
         vscode.window.registerTerminalLinkProvider(
-            new DenpexTerminalLinkProvider((_t) => {
-                void diagnoseCollectedLogs();
+            new DenpexTerminalLinkProvider((_t, lineText) => {
+                if (lineText && lineText.trim().length >= MIN_LOG_CHARS) {
+                    void runDiagnosis(lineText.trim(), 'terminal-link');
+                } else {
+                    void diagnoseCollectedLogs();
+                }
             }),
         ),
     );
@@ -489,9 +512,10 @@ async function runDiagnosis(logs: string, jobName: string, topologyMap?: Record<
     }
 
     const mode = vscode.workspace.getConfiguration('denpex').get<string>('engine') || 'auto';
-    const wantsLocalOnly = mode === 'local';
+    const wantsCloudExplicit = mode === 'cloud';
 
-    if (wantsLocalOnly) {
+    // Local-First Default: Run locally in 400ms for routine diagnoses unless the user explicitly configured 'cloud'
+    if (!wantsCloudExplicit && localEngineAvailable()) {
         await runLocalDiagnosisWithProgress(logs, jobName);
         return;
     }
@@ -648,6 +672,21 @@ function openPanel(result: DiagnoseResponse, focusSection?: string): void {
                     void vscode.window.showInformationMessage('Denpex: Copied incident post-mortem for Slack / PR to clipboard.');
                 }
                 break;
+            case 'selectClarifyingChoice':
+                if (lastLogs && message.text) {
+                    const refinedPrompt = `${lastLogs}\n\n[Operator Observation]: ${message.text}${message.reason ? ` (${message.reason})` : ''}`;
+                    lastLogs = refinedPrompt;
+                    void runDiagnosis(refinedPrompt, 'clarifying-refinement');
+                }
+                break;
+            case 'insertInTerminal':
+                if (message.text) {
+                    const term = vscode.window.activeTerminal || vscode.window.createTerminal({ name: 'Denpex' });
+                    term.show(true);
+                    term.sendText(message.text, false);
+                    vscode.window.setStatusBarMessage('Denpex: Inserted command at terminal prompt', 3000);
+                }
+                break;
             case 'startInEditorTrial':
                 if (extContext) await startInEditorTrialFlow(extContext);
                 break;
@@ -717,13 +756,13 @@ async function refreshStatusBar(): Promise<void> {
     if (!apiKey()) {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         if (remaining > 0) {
-            statusItem.text = `$(pulse) Denpex: ${remaining} free cloud`;
-            statusItem.tooltip = `Denpex: ${remaining} free full-power cloud deep analyses remaining. Click to diagnose.`;
+            statusItem.text = `$(pulse) Denpex: Local · ${remaining} Cloud Passes`;
+            statusItem.tooltip = `Denpex: Unlimited Local Engine Active · ${remaining} free Cloud Deep Reasoning passes remaining. Click for menu.`;
         } else if (localEngineAvailable()) {
-            statusItem.text = '$(pulse) Denpex: offline';
+            statusItem.text = '$(pulse) Denpex: Local Engine';
             statusItem.tooltip =
-                'Denpex, offline engine, unlimited, no account. Nothing leaves this machine.\n'
-                + 'Enter work email to unlock 30 days of Scale (50 cloud analyses/day).';
+                'Denpex: Unlimited Local Engine Active (no account required).\n'
+                + 'Enter work email to unlock 30 days of Scale (50 cloud analyses/day). Click for menu.';
         } else {
             statusItem.text = '$(pulse) Denpex';
             statusItem.tooltip = 'Denpex ML Diagnostics. Run "Denpex: Set API Key" to sync with your dashboard.';
@@ -736,11 +775,11 @@ async function refreshStatusBar(): Promise<void> {
         const remainingLabel = typeof q.remaining === 'number' && isFinite(q.remaining) ? ` · ${q.remaining} left` : '';
         statusItem.text = `$(pulse) Denpex: ${planLabel}${remainingLabel}`;
         statusItem.tooltip = trial?.active
-            ? `Denpex, ${trial.plan} trial, ${trial.days_remaining} days remaining`
-            : `Denpex, ${planLabel} plan, synced with your cloud dashboard`;
+            ? `Denpex: ${trial.plan} trial, ${trial.days_remaining} days remaining. Click for menu.`
+            : `Denpex: ${planLabel} plan, synced with your cloud dashboard. Click for menu.`;
     } catch {
         statusItem.text = '$(pulse) Denpex';
-        statusItem.tooltip = 'Denpex ML Diagnostics';
+        statusItem.tooltip = 'Denpex ML Diagnostics. Click for menu.';
     }
 }
 

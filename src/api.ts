@@ -245,7 +245,7 @@ function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?
         const payload = body === undefined ? undefined : JSON.stringify(body);
         const headers: Record<string, string | number> = {
             'Content-Type': 'application/json',
-            'User-Agent': 'Denpex-VSCode/1.3.9',
+            'User-Agent': 'Denpex-VSCode/1.4.0',
         };
         if (sessionCookie) headers['Cookie'] = sessionCookie;
         if (payload) headers['Content-Length'] = Buffer.byteLength(payload);
