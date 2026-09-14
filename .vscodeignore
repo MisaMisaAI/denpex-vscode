@@ -1,0 +1,33 @@
+# What NOT to ship inside the .vsix.
+#
+# There was no .vscodeignore, so every package included src/, node_modules/, the
+# tsconfig, and — worst — the seven previously built .vsix files sitting in this
+# directory, each of which contained the ones before it. The published artifact was
+# carrying its own history.
+#
+# This matters more now that engine/denpex_canonical.mjs (~7 MB) is bundled: that file
+# is the product's free tier and has to be in the package, so everything that does not
+# need to be there must go.
+
+.vscode/**
+.vscode-test/**
+src/**
+node_modules/**
+**/*.map
+**/*.ts
+!out/**/*.d.ts
+.gitignore
+.eslintrc*
+tsconfig.json
+package-lock.json
+pnpm-lock.yaml
+**/*.vsix
+.audit/**
+
+# Build tooling. scripts/bundle-engine.js runs at COMPILE time to copy the engine in;
+# shipping it to users puts a script that reads paths outside the extension into every
+# install, for no benefit.
+scripts/**
+
+# engine/ is deliberately NOT ignored. It is the offline diagnosis engine and the
+# extension is a metered demo without it.

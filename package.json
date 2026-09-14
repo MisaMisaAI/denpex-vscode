@@ -1,0 +1,387 @@
+{
+  "name": "denpex-diagnostics",
+  "displayName": "Denpex. GPU & ML Crash Diagnostics",
+  "description": "Diagnose CUDA, NCCL, PyTorch, Xid, Slurm, Kubernetes, vLLM, DeepSpeed, H100/A100, and RunPod/Lambda GPU crash logs. Interactive terminal links; unlimited offline engine.",
+  "version": "1.3.9",
+  "publisher": "denpex",
+  "icon": "logo.png",
+  "pricing": "Free",
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MisaMisaAI/denpex-vscode.git"
+  },
+  "homepage": "https://denpex.com/vscode",
+  "bugs": {
+    "url": "https://github.com/MisaMisaAI/denpex-vscode/issues",
+    "email": "support@denpex.com"
+  },
+  "galleryBanner": {
+    "color": "#151515",
+    "theme": "dark"
+  },
+  "keywords": [
+    "gpu",
+    "cuda",
+    "nccl",
+    "pytorch",
+    "xid",
+    "nvlink",
+    "deepspeed",
+    "fsdp",
+    "ddp",
+    "slurm",
+    "kubernetes",
+    "vllm",
+    "triton",
+    "rocm",
+    "distributed-training",
+    "machine-learning",
+    "mlops",
+    "gpu-debugging",
+    "crash-diagnosis",
+    "oom",
+    "infiniband",
+    "roce",
+    "tensor-parallel",
+    "gpu-monitoring",
+    "traceback",
+    "nvidia",
+    "training-failure",
+    "device-plugin",
+    "ray",
+    "jax",
+    "h100",
+    "a100",
+    "b200",
+    "l40s",
+    "h200",
+    "blackwell",
+    "hopper",
+    "v100",
+    "unsloth",
+    "axolotl",
+    "torchtune",
+    "sglang",
+    "megatron-lm",
+    "runpod",
+    "lambda-labs",
+    "coreweave",
+    "nebius",
+    "k8s-gpu",
+    "nccl-timeout",
+    "cuda-oom",
+    "xid-errors"
+  ],
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Debuggers",
+    "Data Science"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "denpex.diagnoseCurrentLogs",
+        "title": "Denpex: Diagnose Current Logs",
+        "icon": {
+          "light": "media/diagnose-light.svg",
+          "dark": "media/diagnose-dark.svg"
+        }
+      },
+      {
+        "command": "denpex.diagnoseSelection",
+        "title": "Diagnose GPU/ML Error"
+      },
+      {
+        "command": "denpex.diagnoseCurrentEditor",
+        "title": "Denpex: Diagnose Current Log",
+        "icon": {
+          "light": "media/diagnose-light.svg",
+          "dark": "media/diagnose-dark.svg"
+        }
+      },
+      {
+        "command": "denpex.diagnoseLastFailure",
+        "title": "Diagnose Last Failure"
+      },
+      {
+        "command": "denpex.diagnoseTerminal",
+        "title": "Denpex: Diagnose Terminal Error"
+      },
+      {
+        "command": "denpex.diagnoseAllTerminals",
+        "title": "Denpex: Diagnose Across All Terminals (Multi-Node)"
+      },
+      {
+        "command": "denpex.diagnoseCloud",
+        "title": "Denpex: Deep Reasoning (Cloud) on Last Diagnosis"
+      },
+      {
+        "command": "denpex.runSample",
+        "title": "Denpex: Choose a Sample Failure"
+      },
+      {
+        "command": "denpex.sample.ncclOom",
+        "title": "Denpex Sample: Rank-local OOM → NCCL Cascade"
+      },
+      {
+        "command": "denpex.sample.xid79",
+        "title": "Denpex Sample: Xid 79 GPU Fallen Off Bus"
+      },
+      {
+        "command": "denpex.sample.interfaceMismatch",
+        "title": "Denpex Sample: NCCL Interface Mismatch"
+      },
+      {
+        "command": "denpex.sample.kubernetesPlugin",
+        "title": "Denpex Sample: Kubernetes Device-plugin Health"
+      },
+      {
+        "command": "denpex.sample.vllmKvCache",
+        "title": "Denpex Sample: vLLM KV-cache Exhaustion"
+      },
+      {
+        "command": "denpex.walkthrough.inspectCausality",
+        "title": "Denpex: Show Initiating Rank and Collateral Victims"
+      },
+      {
+        "command": "denpex.walkthrough.inspectFix",
+        "title": "Denpex: Show Fix and Verification Command"
+      },
+      {
+        "command": "denpex.showPrivacyStatus",
+        "title": "Denpex: Show Local/Offline Privacy Status"
+      },
+      {
+        "command": "denpex.startTrial",
+        "title": "Denpex: Start Optional 30-day Cloud/Fleet Trial"
+      },
+      {
+        "command": "denpex.generateRma",
+        "title": "Denpex: Generate Hardware RMA Payload"
+      },
+      {
+        "command": "denpex.setApiKey",
+        "title": "Denpex: Set API Key"
+      },
+      {
+        "command": "denpex.redeemCode",
+        "title": "Denpex: Redeem Trial Code"
+      },
+      {
+        "command": "denpex.openPricing",
+        "title": "Denpex: View Pricing / Upgrade"
+      },
+      {
+        "command": "denpex.openDashboard",
+        "title": "Denpex: Open Cloud Dashboard"
+      },
+      {
+        "command": "denpex.startInEditorTrial",
+        "title": "Denpex: Unlock 30-Day Scale Trial (In-Editor)"
+      },
+      {
+        "command": "denpex.copyIncidentReport",
+        "title": "Denpex: Copy Post-Mortem Incident Report (Slack / PR)"
+      },
+      {
+        "command": "denpex.diagnoseClipboard",
+        "title": "Denpex: Paste & Diagnose Clipboard"
+      },
+      {
+        "command": "denpex.scanClusterLogs",
+        "title": "Denpex: Scan Workspace for Slurm/GPU Cluster Logs"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "denpex.diagnoseClipboard",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "denpex.diagnoseSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@100"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "denpex.diagnoseLastFailure",
+          "group": "navigation@100"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "denpex.diagnoseCurrentEditor",
+          "when": "resourceExtname == .log || resourceExtname == .out || denpex.tracebackOpen",
+          "group": "navigation@100"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "denpex.diagnoseCurrentLogs",
+          "when": "view == denpex.sidebar",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "denpex",
+          "title": "Denpex",
+          "icon": "media/denpex.svg"
+        }
+      ]
+    },
+    "views": {
+      "denpex": [
+        {
+          "id": "denpex.sidebar",
+          "name": "GPU/ML Diagnostics"
+        }
+      ]
+    },
+    "walkthroughs": [
+      {
+        "id": "denpex.firstDiagnosis",
+        "title": "Find the first failed rank in under 60 seconds",
+        "description": "Diagnose a realistic NCCL cascade locally, inspect patient zero and the evidence-specific verification step, then try your own log.",
+        "steps": [
+          {
+            "id": "denpex.firstDiagnosis.runSample",
+            "title": "1. Diagnose a sample NCCL hang",
+            "description": "Run a realistic rank-local OOM that turns into an NCCL watchdog cascade.",
+            "media": {
+              "markdown": "walkthroughs/01-diagnose.md"
+            },
+            "completionEvents": [
+              "onCommand:denpex.sample.ncclOom"
+            ]
+          },
+          {
+            "id": "denpex.firstDiagnosis.seeCausality",
+            "title": "2. See the initiating rank and collateral victims",
+            "description": "Open the evidence-ordered causal chain and separate patient zero from the ranks that only timed out later.",
+            "media": {
+              "markdown": "walkthroughs/02-causality.md"
+            },
+            "completionEvents": [
+              "onCommand:denpex.walkthrough.inspectCausality"
+            ]
+          },
+          {
+            "id": "denpex.firstDiagnosis.inspectFix",
+            "title": "3. Inspect the fix and verification step",
+            "description": "A root cause is useful only when the remediation is testable.",
+            "media": {
+              "markdown": "walkthroughs/03-fix.md"
+            },
+            "completionEvents": [
+              "onCommand:denpex.walkthrough.inspectFix"
+            ]
+          },
+          {
+            "id": "denpex.firstDiagnosis.ownLog",
+            "title": "4. Try one of your own logs",
+            "description": "Select a traceback, right-click, and diagnose without leaving the editor.",
+            "media": {
+              "markdown": "walkthroughs/04-own-log.md"
+            },
+            "completionEvents": [
+              "onCommand:denpex.diagnoseSelection"
+            ]
+          },
+          {
+            "id": "denpex.firstDiagnosis.trial",
+            "title": "5. Optional: start a 30-day cloud/fleet trial",
+            "description": "Keep local diagnosis free forever; add cloud reasoning, saved history, and fleet workflows only when you need them.",
+            "media": {
+              "markdown": "walkthroughs/05-trial.md"
+            },
+            "completionEvents": [
+              "onCommand:denpex.startTrial"
+            ]
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Denpex",
+      "properties": {
+        "denpex.apiBase": {
+          "type": "string",
+          "default": "https://api.denpex.com",
+          "markdownDescription": "Denpex API base URL. Only change this for staging or an on-prem/air-gapped deployment.",
+          "order": 1
+        },
+        "denpex.predictive.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Watch terminal output of training runs for high-risk signals (NCCL retries, Xid/ECC events, loss spikes) and offer an immediate local diagnosis. Detection is fully local, *Diagnose Now* also runs locally unless you separately choose cloud reasoning.",
+          "order": 3
+        },
+        "denpex.predictive.notifyCooldownMinutes": {
+          "type": "number",
+          "default": 10,
+          "description": "Minimum minutes between pre-crash warnings.",
+          "order": 4
+        },
+        "denpex.remediation.confirmBeforeRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before Denpex runs any fix command in a terminal.",
+          "order": 5
+        },
+        "denpex.remediation.restartCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Command used by the [Restart from Checkpoint] button (e.g. 'sbatch resume_training.sh'). You'll be prompted on first use if empty.",
+          "order": 6
+        },
+        "denpex.engine": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "local",
+            "cloud"
+          ],
+          "enumDescriptions": [
+            "Full power cloud deep reasoning (3 free out of the box, or plan quota), with seamless offline fallback if unreachable.",
+            "Local only. Unlimited and offline. Nothing ever leaves this machine.",
+            "Always use the cloud engine. Uses your plan quota or free cloud analyses."
+          ],
+          "default": "auto",
+          "markdownDescription": "Which engine answers a diagnose command. **auto** uses full-power cloud deep reasoning (3 free diagnoses out of the box, then 30-day Scale upgrade via work email) with offline fallback; **local** is unlimited and offline; **cloud** uses cloud deep reasoning."
+        },
+        "denpex.cloud.autoEscalate": {
+          "type": "boolean",
+          "default": false,
+          "description": "After a local diagnosis, automatically run cloud deep reasoning too (uses quota). Off by default so nothing leaves the machine without you asking."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node scripts/bundle-engine.js && tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "bundle:engine": "node scripts/bundle-engine.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.93.0",
+    "typescript": "^5.1.3"
+  }
+}

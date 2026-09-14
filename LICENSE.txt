@@ -1,0 +1,10 @@
+Copyright © 2026 Denpex. All rights reserved.
+
+The Denpex VS Code extension may be installed and used to access the Denpex
+services and bundled local diagnosis functionality. Use of the extension and
+services is governed by the Denpex Terms of Service at:
+
+https://denpex.com/terms
+
+Except where applicable law permits otherwise, no right is granted to copy,
+modify, redistribute, sell, sublicense, or reverse engineer this software.
