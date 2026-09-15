@@ -54,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // ── Status bar: plan + remaining quota ──
     statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
-    statusItem.text = '$(pulse) Denpex';
+    statusItem.text = 'Denpex';
     statusItem.tooltip = 'Denpex ML Diagnostics, click for menu';
     statusItem.command = 'denpex.showStatusBarMenu';
     statusItem.show();
@@ -759,15 +759,15 @@ async function refreshStatusBar(): Promise<void> {
     if (!apiKey()) {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         if (remaining > 0) {
-            statusItem.text = `$(pulse) Denpex: Local · ${remaining} Cloud Passes`;
+            statusItem.text = `Denpex: Local · ${remaining} Cloud Passes`;
             statusItem.tooltip = `Denpex: Unlimited Local Engine Active · ${remaining} free Cloud Deep Reasoning passes remaining. Click for menu.`;
         } else if (localEngineAvailable()) {
-            statusItem.text = '$(pulse) Denpex: Local Engine';
+            statusItem.text = 'Denpex: Local Engine';
             statusItem.tooltip =
                 'Denpex: Unlimited Local Engine Active (no account required).\n'
                 + 'Enter work email to unlock 30 days of Scale (50 cloud analyses/day). Click for menu.';
         } else {
-            statusItem.text = '$(pulse) Denpex';
+            statusItem.text = 'Denpex';
             statusItem.tooltip = 'Denpex ML Diagnostics. Run "Denpex: Set API Key" to sync with your dashboard.';
         }
         return;
@@ -776,12 +776,12 @@ async function refreshStatusBar(): Promise<void> {
         const [q, trial] = await Promise.all([quota(), redeemStatus().catch(() => null)]);
         const planLabel = trial?.active && trial.plan ? `${trial.plan} trial` : (q.plan || 'free');
         const remainingLabel = typeof q.remaining === 'number' && isFinite(q.remaining) ? ` · ${q.remaining} left` : '';
-        statusItem.text = `$(pulse) Denpex: ${planLabel}${remainingLabel}`;
+        statusItem.text = `Denpex: ${planLabel}${remainingLabel}`;
         statusItem.tooltip = trial?.active
             ? `Denpex: ${trial.plan} trial, ${trial.days_remaining} days remaining. Click for menu.`
             : `Denpex: ${planLabel} plan, synced with your cloud dashboard. Click for menu.`;
     } catch {
-        statusItem.text = '$(pulse) Denpex';
+        statusItem.text = 'Denpex';
         statusItem.tooltip = 'Denpex ML Diagnostics. Click for menu.';
     }
 }

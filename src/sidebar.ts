@@ -93,7 +93,7 @@ export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNod
                     description: 'cloud/offline',
                     tooltip: 'Diagnose selected text, the current log file, terminal output, or pasted logs.',
                     command: { command: 'denpex.diagnoseCurrentLogs', title: 'Diagnose current logs' },
-                    icon: new vscode.ThemeIcon('pulse'),
+                    icon: new vscode.ThemeIcon('play-circle'),
                 },
                 {
                     kind: 'action',
