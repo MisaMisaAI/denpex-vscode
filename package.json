@@ -2,7 +2,7 @@
   "name": "denpex-diagnostics",
   "displayName": "Denpex. GPU & ML Crash Diagnostics",
   "description": "Diagnose CUDA, NCCL, PyTorch, Xid, Slurm, Kubernetes, vLLM, DeepSpeed, H100/A100, and RunPod/Lambda GPU crash logs. Interactive terminal links; unlimited offline engine; 3 cloud passes.",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",

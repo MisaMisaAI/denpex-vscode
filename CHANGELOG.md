@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1
+
+- Brand & Logo Refresh: Replaced early beta pulse icons with the official Denpex 3x3 GPU cluster die grid logo across the extension marketplace, details page, and VS Code activity bar.
+- Clean Status Bar Display: Removed obsolete pulse glyphs from the status bar in favor of clean text status reporting local engine availability and remaining cloud passes.
+- Action Icon Update: Updated editor tab diagnostic icons with the signature Denpex orange cross accent.
+
 ## 1.4.0
 
 - Local-First Default Architecture: All routine diagnoses run locally on the bundled offline engine in 400ms for free forever with zero server spend and zero token waste.
