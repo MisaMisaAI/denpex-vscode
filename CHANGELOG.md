@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.3
+
+- Marketplace SEO & Remote Execution: Enabled remote workspace execution for Remote-SSH and GPU dev containers; added marketplace Q&A and verified status badges.
+- Curated Keyword Set: Optimized extension keywords to the maximum allowed 30 high-impact tags across PyTorch, CUDA, distributed training, and LLM fine-tuning.
+- Expanded Long-Tail Search Index: Added discoverability index covering modern GPU architectures, cloud providers (RunPod, Lambda, CoreWeave), and inference engines.
+
 ## 1.4.2
 
 - Marketplace Search & Discovery: Expanded search indexing for PyTorch, CUDA error codes, multi-GPU training, and LLM fine-tuning failures.

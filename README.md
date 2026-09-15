@@ -1,4 +1,8 @@
-# Denpex. GPU & ML Crash Diagnostics for VS Code
+# Denpex: GPU, CUDA & PyTorch ML Crash Diagnostics for VS Code
+
+[![Offline Engine](https://img.shields.io/badge/Offline%20Engine-100%25%20Local-success)](https://denpex.com/vscode)
+[![Privacy](https://img.shields.io/badge/Privacy-Zero%20Code%20Upload-blue)](https://denpex.com/privacy)
+[![Marketplace](https://img.shields.io/badge/VS%20Marketplace-v1.4.3-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
 
 Find the **first failed rank**, not just the last loud error. Denpex diagnoses CUDA errors,
 NCCL hangs, PyTorch crashes, NVIDIA Xid faults, Slurm and Kubernetes GPU failures, and
@@ -114,15 +118,14 @@ the opt-in auto-escalation setting).
 
 The bundled deterministic engine covers:
 
-- **GPU/runtime:** CUDA, NVIDIA Xid, NVLink, NVSwitch, ECC, DCGM, ROCm
-- **Distributed training:** NCCL, PyTorch DDP/FSDP, DeepSpeed ZeRO, Megatron-LM, MPI
-- **Fabrics:** InfiniBand, RoCE, EFA, GPUDirect RDMA, socket-interface mismatches
-- **Schedulers/orchestrators:** Slurm, Kubernetes, NVIDIA GPU Operator and device plugin,
-  Ray and Volcano
-- **Inference:** vLLM, TensorRT-LLM, Triton Inference Server, FlashAttention, tensor and
-  pipeline parallelism
-- **Frameworks/data:** PyTorch, JAX/XLA, Hugging Face, checkpoint, storage, and data-loader
-  failures
+- **GPU architectures:** NVIDIA Blackwell (B200, B100), Hopper (H100, H200), Ada Lovelace (L40S, RTX 4090), Ampere (A100, A10G), Volta (V100), and AMD ROCm (MI300X, MI250)
+- **Distributed training:** NCCL, PyTorch DDP/FSDP, torchrun, DeepSpeed ZeRO, Megatron-LM, MPI
+- **Fine-tuning & post-training:** Unsloth, Axolotl, Torchtune, SGLang, Hugging Face TRL, PEFT (LoRA, QLoRA)
+- **Cloud & cluster providers:** RunPod, Lambda Labs, CoreWeave, Nebius, Crusoe, AWS EC2 (p4de, p5), GCP (A3), Azure (NDv4, NDv5)
+- **Fabrics & interconnects:** NVLink, NVSwitch, InfiniBand, RoCE, AWS EFA, GPUDirect RDMA, socket-interface mismatches
+- **Schedulers & orchestrators:** Slurm, Kubernetes, NVIDIA GPU Operator, NVIDIA device plugin, Ray, and Volcano
+- **Inference engines:** vLLM, TensorRT-LLM, Triton Inference Server, FlashAttention, tensor and pipeline parallelism
+- **Low-level signals:** Linux OOM-killer (SIGKILL 137, OOMKilled), cudaMalloc failures, NVIDIA Xid driver faults, cgroups v2, DCGM telemetry
 
 ### Common Signatures Diagnosed Instantly
 
