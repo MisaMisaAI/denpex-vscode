@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2
+
+- Marketplace Search & Discovery: Expanded search indexing for PyTorch, CUDA error codes, multi-GPU training, and LLM fine-tuning failures.
+- SEO Error Index: Added indexed error signature reference in extension documentation for instant diagnosis lookups.
+
 ## 1.4.1
 
 - Brand & Logo Refresh: Replaced early beta pulse icons with the official Denpex 3x3 GPU cluster die grid logo across the extension marketplace, details page, and VS Code activity bar.

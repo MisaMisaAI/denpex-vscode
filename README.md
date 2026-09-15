@@ -124,6 +124,21 @@ The bundled deterministic engine covers:
 - **Frameworks/data:** PyTorch, JAX/XLA, Hugging Face, checkpoint, storage, and data-loader
   failures
 
+### Common Signatures Diagnosed Instantly
+
+| Failure Signature | What Denpex Isolates |
+|---|---|
+| `torch.cuda.OutOfMemoryError` | Exact initiating rank and tensor allocation vs collateral NCCL watchdog timeouts |
+| `NCCL watchdog timeout: ALLREDUCE` | Separates the 1 slow or dead rank from the 63 waiting ranks |
+| `CUDA error: device-side assert triggered` | Precise kernel launch and tensor indexing bug without requiring host re-runs |
+| `NVRM: Xid 79 (GPU fallen off bus)` | Hardware PCIe link failure routed to infra team instead of ML code debugging |
+| `NVRM: Xid 48 (Double Bit ECC Error)` | Uncorrectable SRAM/HBM fault with automated Slurm drain commands |
+| `vLLM Engine killed by SIGKILL / OOM` | KV-cache allocation exhaustion vs context length concurrency limit |
+| `CUDA error: misaligned address` | Unaligned pointer arithmetic in custom Triton/CUDA kernels |
+| `SLURM STEP CANCELLED / Node Fail` | Distinguishes job preemption, OOM kills, and node power loss |
+| `NCCL_SOCKET_IFNAME mismatch` | Multi-node network interface mismatch (`ib0` vs `eth0`) causing silent hangs |
+| `Kubernetes device-plugin stale health` | Unrecovered GPU state causing pod crash loops on healthy worker nodes |
+
 ## Local engine versus cloud deep reasoning
 
 | | Local engine | Cloud deep reasoning |
