@@ -2,13 +2,23 @@
 
 [![Offline Engine](https://img.shields.io/badge/Offline%20Engine-100%25%20Local-success)](https://denpex.com/vscode)
 [![Privacy](https://img.shields.io/badge/Privacy-Zero%20Code%20Upload-blue)](https://denpex.com/privacy)
-[![Current release](https://img.shields.io/badge/Current%20release-v1.4.37-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
+[![Current release](https://img.shields.io/badge/Current%20release-v1.4.39-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
 
 Select a GPU error log. See the supporting evidence, likely cause, and what to check next, without leaving VS Code.
 
 Investigate CUDA out-of-memory errors, NCCL timeouts, PyTorch crashes, NVIDIA Xid faults, Slurm jobs, Kubernetes GPU failures, and vLLM inference errors.
 
 **Local diagnosis is free, unlimited, and offline. No account, API key, or separate Node.js installation required.**
+
+![Denpex Console demonstrating a synthetic rank-3 OOM diagnosis and supporting peer-timeout evidence](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.gif)
+
+A short, single-play demonstration of the actual Console renderer and shipped local engine on a bundled synthetic log. No LLM or live customer cluster is used. [View the still image](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.png).
+
+### Where the answers come from
+
+Local diagnosis runs the bundled deterministic engine: known failure rules, evidence checks and cross-rank correlation. It does not call an LLM. When logs cannot establish a cause, it should request more evidence rather than invent one. Optional cloud review can use deeper model reasoning on the log you explicitly approve for upload; it still cannot establish facts absent from that evidence.
+
+One immediate account-free cloud review is available in the editor. For further free cloud use, open the web diagnosis flow under its daily allowance and browser verification, or connect your existing account. Local diagnosis stays unlimited.
 
 ### Start with one useful result
 
@@ -17,6 +27,15 @@ Investigate CUDA out-of-memory errors, NCCL timeouts, PyTorch crashes, NVIDIA Xi
 - **Continue when facts are missing:** inspect local findings, or explicitly choose optional cloud review. A diagnosis is not proof that your workload is repaired.
 
 For a one-off error, keep using free local diagnosis. For recurring team incidents, evaluate whether connected evidence, notifications and saved cloud investigations reduce your work. A Team evaluation should use your own incident, not just a sample.
+
+### What is free, and what is optional?
+
+- **Free local diagnosis:** unlimited own-log analysis, local evidence inspection and local reports. No account required.
+- **Optional cloud review:** you approve log upload; usage follows your account or anonymous allowance.
+- **30-day Team trial:** an eligible verified workplace can evaluate up to 50 cloud diagnoses a day and saved history. No card or automatic subscription.
+- **Connected Fleet and GPU host map:** require reporting agents and a plan with that access.
+
+After the trial, local diagnosis stays free. Subscribe only if the team workflow earns its place.
 
 ## Quick Install
 
