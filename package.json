@@ -2,7 +2,7 @@
   "name": "denpex-diagnostics",
   "displayName": "Denpex: GPU, CUDA & PyTorch ML Crash Diagnostics",
   "description": "Diagnose GPU errors, CUDA OOM, PyTorch crashes, NCCL hangs, Xid, Slurm and vLLM failures in VS Code. Free offline analysis. No sign-up.",
-  "version": "1.4.43",
+  "version": "1.4.44",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",

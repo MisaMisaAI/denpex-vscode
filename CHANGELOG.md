@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.44
+
+- Added safe tail-slicing for multi-megabyte training logs in the local offline engine to eliminate buffer limit errors on massive cluster outputs.
+
 ## 1.4.43
 
 - Added Local GPU Preflight Check (`denpex.runPreflightCheck`) to audit GPU count, compute capability, ECC memory state, /dev/shm shared memory volume, and PyTorch/CUDA driver alignment before training.
