@@ -88,6 +88,15 @@ export function diagnoseLocally(
         return Promise.reject(new LocalEngineError('The offline engine was not bundled with this build of the extension.'));
     }
 
+    // Retain the critical tail where failure exceptions, tracebacks, and rank aborts occur
+    const MAX_LOCAL_LOG_BYTES = 400 * 1024;
+    let payloadLogs = logs;
+    if (payloadLogs && payloadLogs.length > MAX_LOCAL_LOG_BYTES) {
+        const rawSlice = payloadLogs.slice(-MAX_LOCAL_LOG_BYTES);
+        const firstNewline = rawSlice.indexOf('\n');
+        payloadLogs = firstNewline !== -1 ? rawSlice.slice(firstNewline + 1) : rawSlice;
+    }
+
     return new Promise<DiagnoseResponse>((resolve, reject) => {
         let settled = false;
         const finish = (fn: () => void) => {
@@ -155,7 +164,7 @@ export function diagnoseLocally(
         });
 
         try {
-            child.stdin.write(JSON.stringify({ logs, jobName }));
+            child.stdin.write(JSON.stringify({ logs: payloadLogs, jobName }));
             child.stdin.end();
         } catch (err: any) {
             finish(() => reject(new LocalEngineError(`Could not send the log to the local engine: ${err?.message ?? err}`)));
