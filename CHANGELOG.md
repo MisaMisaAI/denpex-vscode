@@ -1,5 +1,86 @@
 # Changelog
 
+## 1.4.42
+
+- Added transparent free/paid architecture positioning to the extension listing.
+- Updated marketplace screenshot links to reliable repository assets to resolve asset loading issues.
+- Synchronized local offline diagnostic engine bundle with latest patterns.
+
+## 1.4.41
+
+- Integrated the verified differential diagnosis engine with candidate cause scoring (supported, contradicted, unconfirmed) and distinguishing test guidance.
+- Added bidirectional 500ms causal tolerance filtering to isolate patient zero faults and suppress secondary NCCL timeout cascades.
+- Updated bundled offline engine with anchor-weighted confidence gating and hardened read-only test verification.
+
+## 1.4.14
+
+- Replaced the command list in the Denpex sidebar with clear actions for copied logs, editor or terminal output, workspace logs, and bundled samples.
+- Opened local diagnoses in a full editor tab with the likely cause, safety guidance, supporting evidence, and next actions in reading order.
+- Kept run buttons off remediation plans when a checkpoint safety warning is present.
+- Updated the Marketplace listing with a screenshot captured from the extension running in VS Code.
+
+## 1.4.13
+
+- Shortened the Marketplace listing around trying a diagnosis, retained discovery keywords, and clarified the sample-image provenance.
+- Made every getting-started action available directly in the walkthrough description, including narrow editor layouts.
+- Replaced outdated trial key-copy instructions with the activation and Connect Account flow. Manual keys remain an advanced option.
+- Updated the offline engine with source-backed TensorRT-LLM FP8 guidance covering Ada support and backend and model limitations.
+
+## 1.4.12
+
+- Added Connect Account: approve a short code in the browser and return to VS Code without copying an API key. An active eligible plan or approved trial is still required.
+- Connection credentials stay in SecretStorage, expire after 90 days, and cannot change billing or execute remote commands. Disconnect Account revokes the current credential on the server.
+- Kept diagnosis context in the editor while connecting. Connection never uploads a log or starts a paid analysis.
+- Split trial instructions into clear activation and connection steps. Manual API key setup remains available for advanced and self-hosted use.
+- Clarified that incomplete logs may require more evidence before identifying an initiating failure.
+
+## 1.4.11
+
+- Rebuilt the packaged offline engine from the verified website release, including the source-backed Xid 79 correction.
+- Synchronized the published extension with the current consent-based funnel, in-editor Team evaluation request, and copy-first remediation controls.
+- Included the canonical engine fingerprint so the public VSIX can be checked against the release source.
+
+## 1.4.10
+
+- The packaged sidebar now says Team rather than Scale for the 30-day evaluation.
+- Rebuilt the bundled offline engine from the current diagnosis source and kept the reported client version in sync with the package.
+- Added optional, consent-based counts for completed sample, own-log, cloud, and Team-trial steps. No log, result, email, path, machine detail, or install identifier is sent.
+
+## 1.4.9
+
+- The first local result leads with diagnosing your own log, then offers one optional cloud review of that same log. The cloud handoff explains when the log leaves VS Code.
+- Free-form fix and verification text can be copied but no longer has an Execute button. Only structured remediation commands can be run directly.
+- The trial action says Team and requests the code inside VS Code. The emailed link still handles activation, with key setup on denpex.com.
+- Established company mailboxes can activate Team after an address-bound code and current domain checks without depending on Google Workspace. Uncertain domains receive a review path.
+- The bundled engine is rebuilt from the current source so the published package can be checked against the repository.
+
+## 1.4.8
+
+- The bundled offline engine requires explicit evidence before naming missing torchrun ranks, FSDP desynchronization, or another rank as the cause of a generic NCCL communicator abort. When the initiating cause is absent, it asks for more evidence.
+- The offline diagnosis engine version now matches the website's updated engine.
+
+## 1.4.7
+
+- The public 30-day evaluation now activates Team, matching the $499 month-to-month plan. Existing Scale codes still redeem at their original tier, and larger teams can request a reviewed Scale evaluation.
+- Trial labels and cloud quota guidance in the extension match the website and emailed offer.
+
+## 1.4.6
+
+- Release package for the 30-day evaluation funnel shared by VS Code and denpex.com. The local diagnosis, one immediate account-free cloud analysis, email activation, and personal API key setup follow the same steps on both surfaces.
+
+## 1.4.5
+
+- Trial handoff: Request a Scale evaluation code in VS Code, then activate it through the emailed redemption link with the same work address. The extension now explains the website step and the 7-day redemption window instead of implying the trial starts inside the editor.
+- Marketplace and website parity: The extension walkthrough, diagnosis panel, and listing describe the same 30-day evaluation path.
+- Cloud allowance honesty: The extension offers one immediate account-free cloud analysis. Further anonymous analyses may require a browser check, so the extension directs users to the browser or to the Scale trial instead of promising three headless passes.
+- Secure VS Code connection: After redeeming the trial, create an API key in Dashboard > Monitoring, copy it once, and paste it into VS Code SecretStorage. The trial code is never used as a cloud credential.
+
+## 1.4.4
+
+- Funnel Attribution: Every link the extension opens on denpex.com now carries campaign parameters naming the in-editor surface the click came from, so the path from Marketplace install to site visit to trial is measurable for the first time. Links to any other host are never rewritten, and a user-configured on-prem or air-gapped API endpoint is left untouched. Existing query strings survive, which trial code redemption depends on.
+- Accurate Client Version Reporting: The version this extension reported to the API was hardcoded at 1.4.0 and never updated through 1.4.1, 1.4.2 and 1.4.3, so four releases of traffic were indistinguishable and per-release error rates could not be answered. It now reports its real version, and a parity test fails the build if the reported version and the package version ever disagree again.
+- Shareable Incident Reports: The incident report text copied out of the diagnosis panel carries its own attribution, so a report pasted into Slack or a pull request is traceable back to the extension that produced it.
+
 ## 1.4.3
 
 - Marketplace SEO & Remote Execution: Enabled remote workspace execution for Remote-SSH and GPU dev containers; added marketplace Q&A and verified status badges.

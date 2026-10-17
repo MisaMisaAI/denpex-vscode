@@ -1,8 +1,8 @@
 {
   "name": "denpex-diagnostics",
   "displayName": "Denpex: GPU, CUDA & PyTorch ML Crash Diagnostics",
-  "description": "Instant GPU, CUDA, PyTorch & NCCL crash diagnosis in your terminal. Zero-config offline engine for CUDA OOM, Xid, Slurm, vLLM & cluster hangs.",
-  "version": "1.4.3",
+  "description": "Diagnose GPU errors, CUDA OOM, PyTorch crashes, NCCL hangs, Xid, Slurm and vLLM failures in VS Code. Free offline analysis. No sign-up.",
+  "version": "1.4.42",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",
@@ -41,7 +41,6 @@
     "gpu",
     "cuda",
     "pytorch",
-    "torch",
     "torchrun",
     "cuda-oom",
     "cuda-error",
@@ -49,10 +48,13 @@
     "xid",
     "xid-errors",
     "slurm",
-    "kubernetes",
     "vllm",
     "deepspeed",
-    "triton",
+    "sglang",
+    "megatron",
+    "infiniband",
+    "nvidia-smi",
+    "hpc",
     "h100",
     "a100",
     "b200",
@@ -63,8 +65,6 @@
     "ai-debugger",
     "llm-debugging",
     "fine-tuning",
-    "lora",
-    "rocm",
     "fsdp",
     "ddp",
     "nvlink"
@@ -83,6 +83,22 @@
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "denpex.cloudHistory",
+        "title": "Denpex: Shared Cloud History"
+      },
+      {
+        "command": "denpex.inspectGpuArtifact",
+        "title": "Denpex: Inspect GPU Artifact Locally"
+      },
+      {
+        "command": "denpex.connectAccount",
+        "title": "Denpex: Connect Account"
+      },
+      {
+        "command": "denpex.disconnectAccount",
+        "title": "Denpex: Disconnect Account"
+      },
       {
         "command": "denpex.diagnoseCurrentLogs",
         "title": "Denpex: Diagnose Current Logs",
@@ -156,8 +172,12 @@
         "title": "Denpex: Show Local/Offline Privacy Status"
       },
       {
+        "command": "denpex.manageAnalytics",
+        "title": "Denpex: Manage Anonymous Step Counts"
+      },
+      {
         "command": "denpex.startTrial",
-        "title": "Denpex: Start Optional 30-day Cloud/Fleet Trial"
+        "title": "Denpex: Request Optional 30-day Team Trial"
       },
       {
         "command": "denpex.generateRma",
@@ -181,7 +201,7 @@
       },
       {
         "command": "denpex.startInEditorTrial",
-        "title": "Denpex: Unlock 30-Day Scale Trial (In-Editor)"
+        "title": "Denpex: Request 30-Day Team Trial Code"
       },
       {
         "command": "denpex.copyIncidentReport",
@@ -249,20 +269,21 @@
       "denpex": [
         {
           "id": "denpex.sidebar",
-          "name": "GPU/ML Diagnostics"
+          "name": "GPU/ML Diagnostics",
+          "type": "webview"
         }
       ]
     },
     "walkthroughs": [
       {
         "id": "denpex.firstDiagnosis",
-        "title": "Find the first failed rank in under 60 seconds",
+        "title": "Trace the first failure in a sample NCCL hang",
         "description": "Diagnose a realistic NCCL cascade locally, inspect patient zero and the evidence-specific verification step, then try your own log.",
         "steps": [
           {
             "id": "denpex.firstDiagnosis.runSample",
             "title": "1. Diagnose a sample NCCL hang",
-            "description": "Run a realistic rank-local OOM that turns into an NCCL watchdog cascade.",
+            "description": "Run a realistic rank-local OOM that turns into an NCCL watchdog cascade. No account or upload.\n[Diagnose the sample](command:denpex.sample.ncclOom)",
             "media": {
               "markdown": "walkthroughs/01-diagnose.md"
             },
@@ -273,7 +294,7 @@
           {
             "id": "denpex.firstDiagnosis.seeCausality",
             "title": "2. See the initiating rank and collateral victims",
-            "description": "Open the evidence-ordered causal chain and separate patient zero from the ranks that only timed out later.",
+            "description": "Separate the initiating failure from ranks that timed out later.\n[Show the causal chain](command:denpex.walkthrough.inspectCausality)",
             "media": {
               "markdown": "walkthroughs/02-causality.md"
             },
@@ -284,7 +305,7 @@
           {
             "id": "denpex.firstDiagnosis.inspectFix",
             "title": "3. Inspect the fix and verification step",
-            "description": "A root cause is useful only when the remediation is testable.",
+            "description": "Review the suggested fix and verification before changing anything.\n[Show the fix and verification](command:denpex.walkthrough.inspectFix)",
             "media": {
               "markdown": "walkthroughs/03-fix.md"
             },
@@ -295,23 +316,23 @@
           {
             "id": "denpex.firstDiagnosis.ownLog",
             "title": "4. Try one of your own logs",
-            "description": "Select a traceback, right-click, and diagnose without leaving the editor.",
+            "description": "Select a traceback in your editor, then diagnose it locally.\n[Diagnose selected text](command:denpex.diagnoseSelection)",
             "media": {
               "markdown": "walkthroughs/04-own-log.md"
             },
             "completionEvents": [
-              "onCommand:denpex.diagnoseSelection"
+              "onContext:denpex.ownLogDiagnosed"
             ]
           },
           {
             "id": "denpex.firstDiagnosis.trial",
-            "title": "5. Optional: start a 30-day cloud/fleet trial",
-            "description": "Keep local diagnosis free forever; add cloud reasoning, saved history, and fleet workflows only when you need them.",
+            "title": "5. Optional: request a 30-day Team trial",
+            "description": "Local diagnosis stays free. For optional cloud access, request a trial with your work email, activate it, then connect.\n[Request a Team trial](command:denpex.startInEditorTrial)\n[Connect an existing eligible account](command:denpex.connectAccount)",
             "media": {
               "markdown": "walkthroughs/05-trial.md"
             },
             "completionEvents": [
-              "onCommand:denpex.startTrial"
+              "onCommand:denpex.startInEditorTrial"
             ]
           }
         ]
@@ -320,6 +341,11 @@
     "configuration": {
       "title": "Denpex",
       "properties": {
+        "denpex.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Python 3 executable for read-only local GPU artifact inspection. No shell command arguments."
+        },
         "denpex.apiBase": {
           "type": "string",
           "default": "https://api.denpex.com",
@@ -358,7 +384,7 @@
             "cloud"
           ],
           "enumDescriptions": [
-            "Local-first default (instant, unlimited, offline). Offer cloud deep reasoning with 3 free passes for complex multi-node failures.",
+            "Local-first default (instant, unlimited, offline). Offer one immediate cloud deep reasoning pass for a complex failure; further cloud use needs an account or browser check.",
             "Local only. Unlimited and offline. Nothing ever leaves this machine.",
             "Always use the cloud engine. Uses your plan quota or free cloud passes."
           ],

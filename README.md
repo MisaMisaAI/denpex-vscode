@@ -2,40 +2,15 @@
 
 [![Offline Engine](https://img.shields.io/badge/Offline%20Engine-100%25%20Local-success)](https://denpex.com/vscode)
 [![Privacy](https://img.shields.io/badge/Privacy-Zero%20Code%20Upload-blue)](https://denpex.com/privacy)
-[![Current release](https://img.shields.io/badge/Current%20release-v1.4.39-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
+[![Marketplace](https://img.shields.io/badge/VS%20Marketplace-v1.4.42-orange)](https://marketplace.visualstudio.com/items?itemName=denpex.denpex-diagnostics)
 
 Select a GPU error log. See the supporting evidence, likely cause, and what to check next, without leaving VS Code.
 
 Investigate CUDA out-of-memory errors, NCCL timeouts, PyTorch crashes, NVIDIA Xid faults, Slurm jobs, Kubernetes GPU failures, and vLLM inference errors.
 
-**Local diagnosis is free, unlimited, and offline. No account, API key, or separate Node.js installation required.**
-
-![Denpex Console demonstrating a synthetic rank-3 OOM diagnosis and supporting peer-timeout evidence](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.gif)
-
-A short, single-play demonstration of the actual Console renderer and shipped local engine on a bundled synthetic log. No LLM or live customer cluster is used. [View the still image](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.39/local-diagnosis-demo.png).
-
-### Where the answers come from
-
-Local diagnosis runs the bundled deterministic engine: known failure rules, evidence checks and cross-rank correlation. It does not call an LLM. When logs cannot establish a cause, it should request more evidence rather than invent one. Optional cloud review can use deeper model reasoning on the log you explicitly approve for upload; it still cannot establish facts absent from that evidence.
-
-One immediate account-free cloud review is available in the editor. For further free cloud use, open the web diagnosis flow under its daily allowance and browser verification, or connect your existing account. Local diagnosis stays unlimited.
-
-### Start with one useful result
-
-- **Understand the failure:** inspect the likely cause and the log lines supporting it.
-- **Know what to do next:** review the recommendation, its prerequisites and the checks needed to establish recovery.
-- **Continue when facts are missing:** inspect local findings, or explicitly choose optional cloud review. A diagnosis is not proof that your workload is repaired.
-
-For a one-off error, keep using free local diagnosis. For recurring team incidents, evaluate whether connected evidence, notifications and saved cloud investigations reduce your work. A Team evaluation should use your own incident, not just a sample.
-
-### What is free, and what is optional?
-
-- **Free local diagnosis:** unlimited own-log analysis, local evidence inspection and local reports. No account required.
-- **Optional cloud review:** you approve log upload; usage follows your account or anonymous allowance.
-- **30-day Team trial:** an eligible verified workplace can evaluate up to 50 cloud diagnoses a day and saved history. No card or automatic subscription.
-- **Connected Fleet and GPU host map:** require reporting agents and a plan with that access.
-
-After the trial, local diagnosis stays free. Subscribe only if the team workflow earns its place.
+> **Denpex provides unlimited, 100% free offline GPU crash diagnostics powered by our local deterministic engine. No sign-up, credit card, or API key required.**
+>
+> *Optional cloud deep reasoning and shared team history are available when you need cloud-assisted analysis for complex, unclassified crashes.*
 
 ## Quick Install
 
@@ -59,27 +34,16 @@ The report separates an initiating failure from downstream symptoms when the log
 
 The report leads with the likely cause, checkpoint safety when relevant, and recommended actions. Expand the evidence and causal chain to see how Denpex reached its conclusion. If the logs do not establish a cause, the report identifies what evidence is missing.
 
-![Current Denpex Console with a local vLLM diagnosis, likely cause and evidence](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.37/diagnosis-vllm-kv-cache.png)
+**Find the first failure and act on it.** This bundled incident has a CUDA OOM on rank 3 followed by NCCL timeouts on other ranks. The extension identifies the initiating fault, flags unknown checkpoint safety, and shows the first fix in the same editor view.
 
-Captured from the current extension's Console renderer after running its bundled synthetic vLLM log through the shipped offline engine. The report shows evidence and suggested checks, not proof of workload recovery.
+![Denpex running in VS Code: sidebar sample, rank 3 OOM diagnosis, checkpoint warning, and recommended actions](https://denpex.com/marketplace/vscode-diagnosis-sidebar.png)
 
-### Inspect incidents in Fleet
+**Check the source lines.** Open the evidence section to inspect the OOM and downstream timeout lines that support the diagnosis.
 
-![Denpex extension Fleet with an incident queue and selected incident details](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.37/fleet.png)
+![Denpex running in VS Code with the matched log evidence expanded below the recommended actions](https://denpex.com/marketplace/vscode-diagnosis-evidence.png)
 
-Search incidents, select a result and review the recorded guidance beside the queue. This capture uses the actual compiled extension workspace with synthetic example telemetry.
+Both screenshots were captured from the installed extension using its bundled synthetic sample. Your VS Code theme and window size may vary.
 
-### Find the affected host on the map
-
-![Denpex extension Topology map with three clusters, 384 GPUs, a red fault and an orange inspection signal](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.37/topology.png)
-
-The map groups reported hosts by cluster and fits the available fleet. Select a host to inspect its GPUs. Red and orange signals identify devices to investigate; they do not establish the root cause.
-
-### Inspect exact device identity and evidence
-
-![Selected host GPU cards and inspector showing the example GPU UUID, PCI address, temperature and reason for inspection](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/v1.4.37/topology-device.png)
-
-The inspector connects device identity, reported measurements and the next evidence step. These Fleet and Topology captures use synthetic example records, not a live customer cluster. Connected users see their account's reported inventory and measurements. Accounts without telemetry see setup instructions. VS Code theme and panel size can change the appearance.
 
 ## Use it where you work
 
@@ -87,14 +51,6 @@ The inspector connects device identity, reported measurements and the next evide
 - **Terminal:** use **Diagnose Last Failure**, or follow a Denpex link on a recognized error.
 - **Sidebar:** diagnose a copied error, use editor or terminal output, scan workspace logs, or try a sample.
 - **Team handoff:** choose **Copy Slack/PR Report**, then paste the report where you need it.
-
-### Console, Fleet and Topology
-
-Open **Denpex: Open Console** to paste a log, run a local diagnosis and ask about its recorded cause, evidence, fix or checkpoint safety. These local follow-ups do not invoke an LLM. Arbitrary questions require a separate cloud review.
-
-Choose **Fleet** or **Topology** in the console, or run **Denpex: Open Fleet** and **Denpex: Open Topology**. These editor panels use the website's shared components and read your connected account's reports and telemetry. A plan with the corresponding access is required. With no telemetry, the map shows setup instructions, not demo nodes. Stale telemetry is not presented as healthy.
-
-Account reports are read-only in the editor. Billing, API-key management, integrations and operational changes remain website actions. Opening a fleet view does not upload your local log or start LLM reasoning. Credentials stay in the extension host, not in the webview.
 
 Local diagnosis runs on the extension host, including Remote-SSH hosts and containers. The bundled engine also works without internet access.
 
@@ -116,6 +72,14 @@ The engine recognizes patterns across PyTorch, NCCL, DeepSpeed, Slurm, Kubernete
 
 ## Optional cloud review
 
+Use **Denpex: Inspect GPU Artifact Locally** for Flight Recorder JSON rank dumps, CUDA memory snapshot JSON, Nsight SQLite traces, checkpoint candidates and aligned rank timings. It requires Python 3 and uses the bundled read-only inspector. No pickle files are executed and no checkpoint is changed. Basic local inspection remains account-free.
+
+Memory inspection separates requested allocations, awaiting-free blocks and inactive memory per GPU. A large allocation is a contributor, not automatically the cause of an OOM. Checkpoint metadata alone cannot establish a safe resume point.
+
+![Synthetic CUDA memory snapshot inspected by the local Denpex engine](https://raw.githubusercontent.com/MisaMisaAI/denpex-vscode/main/screenshots/diagnosis-memory-snapshot.png)
+
+Choose cloud review explicitly to save a diagnostic summary to your account. **Denpex: Shared Cloud History** reads the same saved summaries as the website and MCP, including older pages. Local-only results and raw artifact files remain on this machine. Account status shows the server-confirmed email and effective plan; an API key's presence alone does not verify access.
+
 Start locally. If you need another pass, choose **Try one free cloud review** in the report. You get one immediate cloud deep analysis without an account. Later anonymous requests may require a browser check on denpex.com.
 
 Cloud review sends the selected log to Denpex. It is optional; local diagnosis stays unlimited.
@@ -130,16 +94,6 @@ Company-domain verification applies. If automatic verification fails, contact su
 Connecting an account does not upload a log or start a diagnosis. Credentials are stored in VS Code SecretStorage. See the [extension guide](https://denpex.com/vscode) for setup details.
 
 ## Privacy
-
-### Return to an investigation
-
-Choose **Save locally** in a report to keep its findings, evidence excerpts and recovery assessment history on the extension host. Saving requires explicit confirmation. These files are not encrypted, are limited to 2 MiB each and remain until deleted; keep sensitive evidence out if your policy prohibits local storage. Up to 100 reports can be saved.
-
-Use **Reopen** or **Denpex: Reopen Saved Investigation** after restarting the editor. **Export report** writes a Markdown handoff to a location you choose. **Delete saved report** removes a selected saved report after confirmation. The original input log is not separately retained, so provide it again for a fresh diagnosis or cloud review.
-
-Recovery assessments are your observations, not independent certification by Denpex. Saving or exporting preserves unsuccessful assessments as well as the latest result.
-
-### Default behavior
 
 Local diagnosis, predictive terminal monitoring, sample failures, and RMA payload
 generation run entirely on the extension host. Clipboard text is read only after you
@@ -180,17 +134,3 @@ Read the full [Denpex privacy policy](https://denpex.com/privacy).
 - [Contact support](https://denpex.com/contact)
 - [Service status](https://denpex.com/status)
 - [Security disclosure](https://denpex.com/security/disclosure)
-
-## GPU artifact inspection
-
-Use **Denpex: Inspect GPU Artifact Locally** for Flight Recorder JSON rank dumps, CUDA memory snapshot JSON, Nsight SQLite, checkpoint candidates and aligned rank timings. Python 3 is required. No pickle is executed, no checkpoint is changed, and no artifact is uploaded automatically. Memory measurements stay separate by GPU. Metadata alone does not verify checkpoint recovery.
-
-**Denpex: Shared Cloud History** reads diagnoses saved by the website, extension, API and MCP. Local-only results stay on this machine until you explicitly choose cloud review. Your connected account and effective plan are verified by the server.
-
-## GPU artifact inspection
-
-Use **Denpex: Inspect GPU Artifact Locally** for Flight Recorder JSON rank dumps, CUDA memory snapshot JSON, Nsight SQLite, checkpoint candidates and aligned rank timings. Python 3 is required. No pickle is executed, no checkpoint is changed, and no artifact is uploaded automatically. Memory measurements stay separate by GPU. Metadata alone does not verify checkpoint recovery.
-
-**Denpex: Shared Cloud History** reads diagnoses saved by the website, extension, API and MCP. Local-only results stay on this machine until you explicitly choose cloud review. Your connected account and effective plan are verified by the server.
-
-
