@@ -2,7 +2,7 @@
   "name": "denpex-diagnostics",
   "displayName": "Denpex: GPU, CUDA & PyTorch ML Crash Diagnostics",
   "description": "Diagnose GPU errors, CUDA OOM, PyTorch crashes, NCCL hangs, Xid, Slurm and vLLM failures in VS Code. Free offline analysis. No sign-up.",
-  "version": "1.4.42",
+  "version": "1.4.43",
   "publisher": "denpex",
   "icon": "logo.png",
   "pricing": "Free",
@@ -222,6 +222,14 @@
       {
         "command": "denpex.compareLogs",
         "title": "Denpex: Compare Failed Log with Baseline Log (Diff)"
+      },
+      {
+        "command": "denpex.runPreflightCheck",
+        "title": "Denpex: Run Local GPU Preflight Check"
+      },
+      {
+        "command": "denpex.correlateRankLogs",
+        "title": "Denpex: Correlate Multi-Rank Cluster Logs (Find Patient Zero)"
       }
     ],
     "keybindings": [

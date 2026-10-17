@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.43
+
+- Added Local GPU Preflight Check (`denpex.runPreflightCheck`) to audit GPU count, compute capability, ECC memory state, /dev/shm shared memory volume, and PyTorch/CUDA driver alignment before training.
+- Added Multi-Rank Log Correlation (`denpex.correlateRankLogs`) to parse multi-node logs concurrently, isolate patient zero ranks, and separate initiating crashes from downstream NCCL timeout cascades.
+- Added In-Editor Diagnostics Provider with editor gutter squiggles and Problems panel integration for traceback crash frames.
+- Added Remediation Action Matrix with one-click copyable environment variables (`TORCH_DISTRIBUTED_DEBUG`, `NCCL_IB_DISABLE`, `PYTORCH_CUDA_ALLOC_CONF`) and inspection commands.
+- Expanded predictive offline signatures for NaN/Inf loss divergence and CUDA device-side assertions.
+
 ## 1.4.42
 
 - Added transparent free/paid architecture positioning to the extension listing.

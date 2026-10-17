@@ -6,7 +6,10 @@ import {
     DASHBOARD_URL, PRICING_URL, REDEEM_URL, PRIVACY_URL, SITE_URL, attribute,
     apiKey, diagnose, initializeApiKey, quota, redeem, redeemStatus, storeApiKey, cloudHistory, accountStatus,
 } from './api';
-import { generateIncidentMarkdown, showDiagnosisPanel } from './panel';
+import { generateIncidentMarkdown, showDiagnosisPanel, showPreflightPanel, showMultiRankPanel } from './panel';
+import { runPreflightChecks } from './preflight';
+import { analyzeMultiRankLogs } from './multi-rank';
+import { DiagnosticsProvider } from './diagnostics-provider';
 import { PredictiveMonitor } from './predictive';
 import { runGenerateRmaCommand } from './rma';
 import { diagnoseLocally, initLocalEngine, localEngineAvailable, LocalEngineError } from './local-engine';
@@ -26,6 +29,7 @@ let lastDiagnosis: DiagnoseResponse | undefined;
 let lastLogs: string | undefined;
 let remediationTerminal: vscode.Terminal | undefined;
 let sidebarProvider: DenpexSidebarProvider | undefined;
+let diagnosticsProvider: DiagnosticsProvider | undefined;
 let extContext: vscode.ExtensionContext | undefined;
 const FIRST_RUN_AHA_KEY = 'denpex.firstRunAha.v1';
 
@@ -44,6 +48,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // Resolve the bundled offline engine before anything can ask for it. This is what
     // makes the extension useful with no account and no network; see local-engine.ts.
     initLocalEngine(context);
+
+    diagnosticsProvider = new DiagnosticsProvider();
+    context.subscriptions.push(diagnosticsProvider);
 
     sidebarProvider = new DenpexSidebarProvider(context);
     const sidebarWebview = new DenpexSidebarWebview(sidebarProvider, localEngineAvailable());
@@ -167,12 +174,43 @@ export async function activate(context: vscode.ExtensionContext) {
         await vscode.commands.executeCommand('vscode.diff', baselineUri, failedUri, diffTitle);
     });
 
+    register('denpex.runPreflightCheck', async () => {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Denpex: Running Local GPU Preflight Checks...',
+            cancellable: false
+        }, async () => {
+            const report = await runPreflightChecks();
+            showPreflightPanel(report);
+        });
+    });
+
+    register('denpex.correlateRankLogs', async () => {
+        const picked = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: true,
+            title: 'Select Distributed Rank Logs (slurm-*.out, rank_*.log)',
+        });
+        if (!picked || !picked.length) return;
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: `Denpex: Correlating ${picked.length} Rank Logs...`,
+            cancellable: false
+        }, async () => {
+            const report = await analyzeMultiRankLogs(picked);
+            showMultiRankPanel(report);
+        });
+    });
+
     register('denpex.showStatusBarMenu', async () => {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         const hasKey = Boolean(apiKey());
         const cloudLabel = hasKey ? 'Uses server-verified account allowance' : `${remaining} free passes remaining`;
 
         const picked = await vscode.window.showQuickPick([
+            { label: '$(check-all) Run Local GPU Preflight Check', description: 'Validate driver, CUDA, /dev/shm, NCCL', cmd: 'denpex.runPreflightCheck' },
+            { label: '$(repo-forked) Multi-Rank Log Correlation', description: 'Find patient-zero rank across cluster logs', cmd: 'denpex.correlateRankLogs' },
             { label: '$(clippy) Paste & Diagnose Clipboard', description: 'Ctrl+Alt+D / Cmd+Alt+D', cmd: 'denpex.diagnoseClipboard' },
             { label: '$(terminal) Diagnose Terminal Error', description: 'Diagnose latest terminal traceback', cmd: 'denpex.diagnoseTerminal' },
             { label: '$(search) Scan Workspace for Slurm/Cluster Logs', description: 'Find slurm-*.out and GPU error logs', cmd: 'denpex.scanClusterLogs' },
@@ -786,6 +824,9 @@ async function escalateToCloud(
 }
 
 function openPanel(result: DiagnoseResponse, focusSection?: string): void {
+    if (vscode.window.activeTextEditor?.document?.uri) {
+        void diagnosticsProvider?.parseTracebacksAndPublish(vscode.window.activeTextEditor.document.uri);
+    }
     showDiagnosisPanel(result, async (message) => {
         switch (message.command) {
             case 'copy':

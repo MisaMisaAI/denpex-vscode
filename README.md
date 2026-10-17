@@ -48,6 +48,10 @@ Both screenshots were captured from the installed extension using its bundled sy
 ## Use it where you work
 
 - **Editor:** select log text, right-click, then **Diagnose GPU/ML Error**.
+- **In-Editor Diagnostics:** traceback lines in Python/CUDA code trigger squiggles and appear in the VS Code Problems panel with quick-fix suggestions.
+- **Preflight Check:** run **Denpex: Run Local GPU Preflight Check** to verify GPU count, ECC health, /dev/shm memory, and PyTorch CUDA compatibility before training.
+- **Multi-Rank Correlation:** run **Denpex: Correlate Multi-Rank Cluster Logs (Find Patient Zero)** across rank logs to isolate the root cause rank from secondary NCCL cascades.
+- **Log Diff Comparison:** run **Denpex: Compare Failed Log with Baseline Log (Diff)** to pinpoint environment or rank divergence against a baseline run.
 - **Terminal:** use **Diagnose Last Failure**, or follow a Denpex link on a recognized error.
 - **Sidebar:** diagnose a copied error, use editor or terminal output, scan workspace logs, or try a sample.
 - **Team handoff:** choose **Copy Slack/PR Report**, then paste the report where you need it.

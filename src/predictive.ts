@@ -16,6 +16,8 @@ const RISK_RULES: RiskRule[] = [
     { id: 'mem_pressure', label: 'Allocator memory pressure', re: /retrying alloc|allocation retr|high memory fragmentation|expandable_segments|reserved memory.*close to capacity/i, weight: 22 },
     { id: 'dataloader', label: 'DataLoader worker instability', re: /DataLoader worker.*(killed|exited|died)|worker terminated unexpectedly/i, weight: 30 },
     { id: 'link_flap', label: 'Fabric link flap', re: /mlx5_core.*link (down|up)|port.*state.*down|link flap/i, weight: 35 },
+    { id: 'nan_inf_loss', label: 'NaN or Inf loss divergence', re: /loss[=:\s]+(nan|inf|-nan|-inf)\b|grad norm is nan|loss.*diverged/i, weight: 60 },
+    { id: 'cuda_assert', label: 'Device-side assert or illegal memory access', re: /device-side assert triggered|CUDA error: an illegal memory access/i, weight: 65 },
 ];
 
 const LOSS_RE = /(?:^|[^a-z])loss[=:\s]+([0-9]*\.?[0-9]+(?:[eE][+-]?[0-9]+)?)/;

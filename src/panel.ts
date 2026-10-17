@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { DASHBOARD_URL, SITE_URL, attribute, DiagnoseResponse } from './api';
+import type { PreflightReport } from './preflight';
+import type { MultiRankReport } from './multi-rank';
 
 export function escapeHtml(value: unknown): string {
     return String(value ?? '')
@@ -502,3 +504,132 @@ export function showDiagnosisPanel(
     panel.webview.onDidReceiveMessage(onMessage);
     return panel;
 }
+
+export function renderPreflightReport(report: PreflightReport): string {
+    const n = nonce();
+    const rows = report.checks.map(c => {
+        const badgeColor = c.status === 'pass' ? 'var(--vscode-testing-iconPassed)' : c.status === 'warn' ? 'var(--vscode-editorWarning-foreground)' : 'var(--vscode-editorError-foreground)';
+        const badgeText = c.status.toUpperCase();
+        return `<div class="action" style="margin-bottom: 12px;">
+            <div class="action-head">
+                <strong>${escapeHtml(c.title)}</strong>
+                <span class="badge" style="background:${badgeColor};color:#fff;font-weight:bold;">${badgeText}</span>
+            </div>
+            <p>${escapeHtml(c.message)}</p>
+            ${c.details ? `<pre style="font-size:0.85em;color:var(--vscode-descriptionForeground);">${escapeHtml(c.details)}</pre>` : ''}
+        </div>`;
+    }).join('');
+
+    const gpuCards = report.gpus.length ? report.gpus.map((g, i) => 
+        `<tr><td>GPU ${i}</td><td>${escapeHtml(g.name)}</td><td>${g.memoryTotalMb} MB</td><td>sm_${escapeHtml(g.computeCapability)}</td><td>${g.eccEnabled ? 'Enabled' : 'Disabled'}</td><td>${escapeHtml(g.driverVersion)}</td></tr>`
+    ).join('') : '<tr><td colspan="6">No NVIDIA GPUs detected via nvidia-smi</td></tr>';
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${n}';">
+<style>
+    body { font-family: var(--vscode-font-family); padding: 22px max(20px, calc((100% - 960px) / 2)); color: var(--vscode-editor-foreground); background-color: var(--vscode-editor-background); line-height: 1.5; }
+    h1 { font-size: 1.5em; margin: 0 0 6px; }
+    .meta { color: var(--vscode-descriptionForeground); font-size: 0.88em; margin: 0 0 16px; }
+    .action { border: 1px solid var(--vscode-widget-border, #333); border-radius: 6px; padding: 12px; background-color: var(--vscode-editorWidget-background, rgba(255,255,255,0.03)); }
+    .action-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .badge { border-radius: 4px; padding: 2px 7px; font-size: 0.8em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--vscode-widget-border, #333); }
+    th { color: var(--vscode-descriptionForeground); font-weight: 600; }
+</style>
+</head>
+<body>
+    <h1>Local GPU Preflight Report</h1>
+    <p class="meta">Timestamp: ${escapeHtml(report.timestamp)} | Platform: ${escapeHtml(report.platform)} | /dev/shm: ${report.shmSizeMb !== null ? `${report.shmSizeMb} MB` : 'N/A'}</p>
+
+    <h3>GPU Hardware Inventory</h3>
+    <table>
+        <thead>
+            <tr><th>Device</th><th>Model</th><th>Memory</th><th>Compute Cap</th><th>ECC</th><th>Driver</th></tr>
+        </thead>
+        <tbody>
+            ${gpuCards}
+        </tbody>
+    </table>
+
+    <h3 style="margin-top: 24px;">Environment and Configuration Checks</h3>
+    ${rows}
+</body>
+</html>`;
+}
+
+export function showPreflightPanel(report: PreflightReport): vscode.WebviewPanel {
+    const panel = vscode.window.createWebviewPanel(
+        'denpexPreflight',
+        'Denpex: Local GPU Preflight',
+        vscode.ViewColumn.Active,
+        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] }
+    );
+    panel.webview.html = renderPreflightReport(report);
+    return panel;
+}
+
+export function renderMultiRankReport(report: MultiRankReport): string {
+    const n = nonce();
+    const rankRows = report.ranks.map(r => {
+        const pzBadge = r.isPatientZero ? `<span class="badge" style="background:var(--vscode-editorError-foreground);color:#fff;font-weight:bold;">PATIENT ZERO (INITIATOR)</span>` : `<span class="badge" style="background:var(--vscode-badge-background);color:var(--vscode-badge-foreground);">COLLATERAL / TIMEOUT</span>`;
+        const firstErr = r.firstErrorLine ? `<code style="display:block;margin-top:4px;font-size:0.85em;color:var(--vscode-editorError-foreground);">${escapeHtml(r.firstErrorLine.rawText.slice(0, 150))}</code>` : '<span class="dim">No error lines recorded</span>';
+        return `<tr>
+            <td><strong>Rank ${r.rank}</strong></td>
+            <td>${pzBadge}</td>
+            <td>${r.totalLines} lines</td>
+            <td>${r.errorCount}</td>
+            <td>${firstErr}</td>
+        </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${n}';">
+<style>
+    body { font-family: var(--vscode-font-family); padding: 22px max(20px, calc((100% - 960px) / 2)); color: var(--vscode-editor-foreground); background-color: var(--vscode-editor-background); line-height: 1.5; }
+    h1 { font-size: 1.5em; margin: 0 0 6px; }
+    .advisory { border-left: 3px solid var(--vscode-editorWarning-foreground); background-color: var(--vscode-textBlockQuote-background, #222); padding: 10px 14px; margin: 16px 0; border-radius: 0 4px 4px 0; }
+    .advisory-critical { border-left-color: var(--vscode-editorError-foreground); }
+    .badge { border-radius: 4px; padding: 2px 7px; font-size: 0.8em; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.9em; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--vscode-widget-border, #333); vertical-align: top; }
+    th { color: var(--vscode-descriptionForeground); font-weight: 600; }
+    .dim { color: var(--vscode-descriptionForeground); }
+</style>
+</head>
+<body>
+    <h1>Multi-Rank Log Correlation Report</h1>
+    <div class="advisory ${report.patientZeroRank !== null ? 'advisory-critical' : ''}">
+        <strong>${escapeHtml(report.summary)}</strong>
+    </div>
+
+    <h3>Analyzed Rank Log Files</h3>
+    <table>
+        <thead>
+            <tr><th>Rank</th><th>Classification</th><th>Log Length</th><th>Errors</th><th>First Error / Trigger</th></tr>
+        </thead>
+        <tbody>
+            ${rankRows}
+        </tbody>
+    </table>
+</body>
+</html>`;
+}
+
+export function showMultiRankPanel(report: MultiRankReport): vscode.WebviewPanel {
+    const panel = vscode.window.createWebviewPanel(
+        'denpexMultiRank',
+        'Denpex: Multi-Rank Correlation',
+        vscode.ViewColumn.Active,
+        { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] }
+    );
+    panel.webview.html = renderMultiRankReport(report);
+    return panel;
+}
+
