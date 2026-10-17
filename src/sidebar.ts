@@ -26,6 +26,7 @@ interface SidebarNode {
 }
 
 export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNode> {
+    onRefresh?: () => void;
     private readonly changed = new vscode.EventEmitter<SidebarNode | undefined | void>();
     readonly onDidChangeTreeData = this.changed.event;
     private readonly liveResults = new Map<string, DiagnoseResponse>();
@@ -34,6 +35,7 @@ export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNod
 
     refresh(): void {
         this.changed.fire();
+        this.onRefresh?.();
     }
 
     async recordLocal(result: DiagnoseResponse): Promise<void> {
@@ -97,11 +99,19 @@ export class DenpexSidebarProvider implements vscode.TreeDataProvider<SidebarNod
                 },
                 {
                     kind: 'action',
-                    label: 'Unlock 30-day Scale trial',
+                    label: 'Try Team free for 30 days',
                     description: 'in-editor',
-                    tooltip: 'Activate 30 days of Scale (50 analyses/day + multi-node reasoning) with your work email.',
-                    command: { command: 'denpex.startInEditorTrial', title: 'Unlock 30-day Scale trial' },
+                    tooltip: 'Request 30 days of Team with up to 50 cloud diagnoses a day. Work email and company verification required.',
+                    command: { command: 'denpex.startInEditorTrial', title: 'Try Team free for 30 days' },
                     icon: new vscode.ThemeIcon('key'),
+                },
+                {
+                    kind: 'action',
+                    label: 'Connect existing account',
+                    description: 'browser approval',
+                    tooltip: 'Connect an active plan or approved trial without copying an API key. No logs are uploaded.',
+                    command: { command: 'denpex.connectAccount', title: 'Connect existing account' },
+                    icon: new vscode.ThemeIcon('account'),
                 },
                 {
                     kind: 'group',

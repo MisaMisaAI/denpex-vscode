@@ -2,9 +2,74 @@ import * as https from 'https';
 import * as http from 'http';
 import * as vscode from 'vscode';
 
+/**
+ * Funnel attribution for every link this extension opens on denpex.com.
+ *
+ * WHY. The site runs GA4 (consent-gated) and it was receiving these visits with no
+ * campaign at all, so marketplace install -> site visit -> trial was unmeasurable. The
+ * extension is the top of that funnel and there was no way to tell how much of it it
+ * actually fed, which makes any claim about the funnel's conversion rate a guess.
+ *
+ * `campaign` names the SURFACE the click came from, not the destination, because the
+ * question worth answering is which in-editor moment sends people to the site. The
+ * incident-report surface matters most: that string is pasted by the user into Slack or a
+ * GitHub PR, so it is the one link that travels to people who have never installed
+ * anything.
+ *
+ * Existing query strings survive, which `redeem?code=...` depends on. Nothing personal,
+ * machine-identifying or log-derived is ever added.
+ */
+export type FunnelSurface =
+    | 'panel'
+    | 'incident-report'
+    | 'privacy-notice'
+    | 'redeem'
+    | 'trial'
+    | 'pricing'
+    | 'dashboard'
+    // These two predate the helper and were spelled out by hand at their call sites.
+    // The names are kept verbatim rather than normalised to the hyphen style above, so
+    // that whatever GA4 already recorded against them stays one continuous series.
+    | 'first_diagnosis'
+    | 'diagnosis_report';
+
+export function attribute(url: string, surface: FunnelSurface): string {
+    try {
+        const u = new URL(url);
+        // Never rewrite a host we do not own, and never touch the API host: `apiBase` is
+        // user-overridable for on-prem and air-gapped installs, and appending marketing
+        // parameters to a customer's own endpoint would be both rude and a bug.
+        if (u.hostname !== 'denpex.com' && u.hostname !== 'www.denpex.com') return url;
+        u.searchParams.set('utm_source', 'vscode');
+        u.searchParams.set('utm_medium', 'extension');
+        u.searchParams.set('utm_campaign', surface);
+        return u.toString();
+    } catch {
+        // A malformed URL is not worth throwing over in a link handler.
+        return url;
+    }
+}
+
+/**
+ * Version this extension reports to the API.
+ *
+ * MUST equal `version` in package.json. It was hardcoded as '1.4.0' and then not touched
+ * through 1.4.1, 1.4.2, 1.4.3 and 1.4.4, so every request from four releases arrived
+ * labelled 1.4.0 and server-side version adoption, per-version error rates and "is the
+ * fix actually out there" were all unanswerable.
+ *
+ * It is a literal rather than a read of package.json because this module must stay
+ * importable outside the extension host (the screenshot generator and the unit tests both
+ * load it in plain Node). The drift that made it wrong is caught instead by
+ * scripts/__tests__/vscode-funnel-parity.test.ts, which fails if the two disagree.
+ */
+export const CLIENT_VERSION = '1.4.13';
+
+export const SITE_URL = 'https://denpex.com';
 export const DASHBOARD_URL = 'https://denpex.com/dashboard';
 export const PRICING_URL = 'https://denpex.com/pricing';
 export const REDEEM_URL = 'https://denpex.com/redeem';
+export const PRIVACY_URL = 'https://denpex.com/privacy';
 
 export const MIN_LOG_CHARS = 6;       // terse machine events such as Xid 79 are valid
 export const MAX_LOG_BYTES = 256000;  // server rejects larger logs (400)
@@ -162,6 +227,29 @@ export interface QuotaResponse {
     allowed?: boolean;
 }
 
+export interface CloudDiagnosisHistoryRow {
+    id: string;
+    job_name?: string;
+    failure_type?: string;
+    confidence?: number;
+    fix_summary?: string;
+    fix_action?: string;
+    created_at?: number;
+}
+
+export async function cloudHistory(cursor?: string): Promise<{ history: CloudDiagnosisHistoryRow[]; nextCursor: string | null }> {
+    return request('GET', `/api/diagnose/history?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+}
+
+export async function accountStatus(): Promise<{ status: 'connected'; account: { email: string; plan: string }; verifiedAt: number }> {
+    const value = await request<{ status: 'connected'; account: { email: string; plan: string }; verifiedAt: number }>('POST', '/api/extension-connect/status', {});
+    if (value.status !== 'connected' || typeof value.account?.email !== 'string' || !value.account.email.includes('@')
+        || typeof value.account.plan !== 'string' || !value.account.plan || !Number.isFinite(value.verifiedAt)) {
+        throw new ApiError('The server did not return a verified account identity.', 502);
+    }
+    return value;
+}
+
 // Raw wire shapes (see api-worker: /api/diagnose/quota and /api/redeem/status).
 interface QuotaWire { quota?: { allowed?: boolean; remaining?: number | null }; plan?: string }
 interface RedeemStatusWire { has_trial?: boolean; trial?: { plan?: string; expires_at?: number; days_remaining?: number } | null; base_plan?: string }
@@ -245,7 +333,7 @@ function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?
         const payload = body === undefined ? undefined : JSON.stringify(body);
         const headers: Record<string, string | number> = {
             'Content-Type': 'application/json',
-            'User-Agent': 'Denpex-VSCode/1.4.0',
+            'User-Agent': `Denpex-VSCode/${CLIENT_VERSION}`,
         };
         if (sessionCookie) headers['Cookie'] = sessionCookie;
         if (payload) headers['Content-Length'] = Buffer.byteLength(payload);

@@ -1,4 +1,5 @@
 export type SampleFailureId =
+    | 'memory-snapshot'
     | 'nccl-rank-oom'
     | 'xid-79'
     | 'nccl-interface-mismatch'
@@ -19,6 +20,20 @@ export interface SampleFailure {
  * They are synthetic reproductions of common log shapes, never customer logs.
  */
 export const SAMPLE_FAILURES: readonly SampleFailure[] = [
+    {
+        id: 'memory-snapshot',
+        title: 'Per-GPU memory snapshot inspection',
+        description: 'Synthetic snapshot summary separates requested allocations, awaiting-free blocks and inactive memory.',
+        expectedFailureTypes: ['GPU_ARTIFACT_ANALYSIS'],
+        logs: JSON.stringify({ denpexArtifactVersion: 1, module: 'memory-snapshot', status: 'COMPLETE',
+            metrics: { devices: [{ device: 0, reservedBytes: 8589934592, requestedBytes: 6442450944,
+                awaitingFreeBytes: 1073741824, inactiveBytes: 805306368, alignmentWasteBytes: 268435456,
+                allocations: [{ requestedBytes: 2147483648, locations: ['attention.py:84'] }],
+                oomEvents: [{ requestedBytes: 1073741824, deviceFreeBytes: 134217728 }] }] },
+            findings: [{ code: 'OOM_EVENT', detail: 'GPU 0 recorded an OOM requesting 1024 MiB with 128 MiB of device memory free.' }],
+            limitations: ['Awaiting-free blocks are unavailable until their streams complete.',
+                'The largest allocation is a contributor, not a proven offending layer.', 'Synthetic sample. No customer data.'] }),
+    },
     {
         id: 'nccl-rank-oom',
         title: 'Rank-local OOM → NCCL timeout cascade',

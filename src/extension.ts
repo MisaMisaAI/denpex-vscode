@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
+import { inspectGpuArtifact } from './artifacts';
+import { connectAccount, disconnectAccount } from './connect';
 import {
     ApiError, DiagnoseResponse, MAX_LOG_BYTES, MIN_LOG_CHARS,
-    DASHBOARD_URL, PRICING_URL, REDEEM_URL,
-    apiKey, diagnose, initializeApiKey, quota, redeem, redeemStatus, storeApiKey,
+    DASHBOARD_URL, PRICING_URL, REDEEM_URL, PRIVACY_URL, SITE_URL, attribute,
+    apiKey, diagnose, initializeApiKey, quota, redeem, redeemStatus, storeApiKey, cloudHistory, accountStatus,
 } from './api';
 import { generateIncidentMarkdown, showDiagnosisPanel } from './panel';
 import { PredictiveMonitor } from './predictive';
@@ -10,8 +12,10 @@ import { runGenerateRmaCommand } from './rma';
 import { diagnoseLocally, initLocalEngine, localEngineAvailable, LocalEngineError } from './local-engine';
 import { SAMPLE_FAILURES, sampleFailure } from './samples';
 import { DenpexSidebarProvider } from './sidebar';
+import { DenpexSidebarWebview } from './sidebar-webview';
 import { selectEvidenceForRequest } from './evidence';
 import { DenpexTerminalLinkProvider } from './terminal-links';
+import { manageExtensionFunnelConsent, offerExtensionFunnelConsent, recordExtensionFunnelEvent } from './funnel-events';
 import {
     consumeFreeCloudDiagnosis, getRemainingFreeCloudDiagnoses, startInEditorTrialFlow,
 } from './trial-flow';
@@ -27,6 +31,7 @@ const FIRST_RUN_AHA_KEY = 'denpex.firstRunAha.v1';
 
 export async function activate(context: vscode.ExtensionContext) {
     extContext = context;
+    await vscode.commands.executeCommand('setContext', 'denpex.ownLogDiagnosed', false);
     try {
         await initializeApiKey(context.secrets);
     } catch {
@@ -41,8 +46,10 @@ export async function activate(context: vscode.ExtensionContext) {
     initLocalEngine(context);
 
     sidebarProvider = new DenpexSidebarProvider(context);
+    const sidebarWebview = new DenpexSidebarWebview(sidebarProvider, localEngineAvailable());
+    sidebarProvider.onRefresh = () => sidebarWebview.refresh();
     context.subscriptions.push(
-        vscode.window.registerTreeDataProvider('denpex.sidebar', sidebarProvider),
+        vscode.window.registerWebviewViewProvider('denpex.sidebar', sidebarWebview),
     );
 
     // ── Predictive pre-crash detection (terminal shell integration) ──
@@ -71,6 +78,37 @@ export async function activate(context: vscode.ExtensionContext) {
     };
 
     register('denpex.diagnoseCurrentLogs', diagnoseCollectedLogs);
+    register('denpex.inspectGpuArtifact', async () => {
+        const evidence = await inspectGpuArtifact(context);
+        if (evidence) await runLocalDiagnosisWithProgress(evidence, 'gpu-artifact');
+    });
+    register('denpex.cloudHistory', async () => {
+        if (!apiKey()) {
+            void vscode.window.showInformationMessage('Connect your Denpex account to read shared cloud history. Local results stay on this machine.');
+            return;
+        }
+        try {
+            let cursor: string | undefined;
+            while (true) {
+                const page = await cloudHistory(cursor);
+                const items = page.history.map((row) => ({ label: row.job_name || row.failure_type || 'Saved diagnosis',
+                    description: row.created_at ? new Date(row.created_at).toLocaleString() : '',
+                    detail: row.fix_summary || '', row, more: false }));
+                if (page.nextCursor) items.push({ label: 'Load older diagnoses', description: '', detail: '', row: { id: '' }, more: true });
+                if (!items.length) { void vscode.window.showInformationMessage('No cloud diagnoses are saved for this account. Choose cloud review to save a local result.'); return; }
+                const selected = await vscode.window.showQuickPick(items, { title: 'Denpex: Shared Cloud History' });
+                if (!selected) return;
+                if (selected.more) { cursor = page.nextCursor || undefined; continue; }
+                const row = selected.row;
+                const document = await vscode.workspace.openTextDocument({ language: 'plaintext',
+                    content: `${row.job_name || 'Denpex diagnosis'}\n${row.failure_type || ''}\n\n${row.fix_summary || ''}\n\n${row.fix_action || ''}\n\nCloud diagnosis ID: ${row.id}` });
+                await vscode.window.showTextDocument(document);
+                return;
+            }
+        } catch (error) {
+            void vscode.window.showErrorMessage(`Could not read shared history: ${error instanceof Error ? error.message : 'Retry after reconnecting.'}`);
+        }
+    });
 
     register('denpex.diagnoseClipboard', async () => {
         const text = (await vscode.env.clipboard.readText()).trim();
@@ -101,18 +139,52 @@ export async function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    register('denpex.compareLogs', async (failedUri?: vscode.Uri) => {
+        if (!failedUri) {
+            const picked = await vscode.window.showOpenDialog({
+                canSelectFiles: true,
+                canSelectFolders: false,
+                canSelectMany: false,
+                title: 'Select Failed Run Log',
+            });
+            if (!picked || !picked.length) return;
+            failedUri = picked[0];
+        }
+
+        const baselinePicked = await vscode.window.showOpenDialog({
+            canSelectFiles: true,
+            canSelectFolders: false,
+            canSelectMany: false,
+            title: 'Select Baseline (Healthy) Run Log',
+        });
+        if (!baselinePicked || !baselinePicked.length) return;
+        const baselineUri = baselinePicked[0];
+
+        const failedName = failedUri.fsPath.split(/[/\\]/).pop() || 'failed.log';
+        const baselineName = baselineUri.fsPath.split(/[/\\]/).pop() || 'baseline.log';
+        const diffTitle = `Denpex Log Diff: ${baselineName} (Baseline) <-> ${failedName} (Failed)`;
+
+        await vscode.commands.executeCommand('vscode.diff', baselineUri, failedUri, diffTitle);
+    });
+
     register('denpex.showStatusBarMenu', async () => {
         const remaining = extContext ? getRemainingFreeCloudDiagnoses(extContext) : 0;
         const hasKey = Boolean(apiKey());
-        const cloudLabel = hasKey ? 'Plan Quota Active' : `${remaining} free passes remaining`;
+        const cloudLabel = hasKey ? 'Uses server-verified account allowance' : `${remaining} free passes remaining`;
 
         const picked = await vscode.window.showQuickPick([
             { label: '$(clippy) Paste & Diagnose Clipboard', description: 'Ctrl+Alt+D / Cmd+Alt+D', cmd: 'denpex.diagnoseClipboard' },
             { label: '$(terminal) Diagnose Terminal Error', description: 'Diagnose latest terminal traceback', cmd: 'denpex.diagnoseTerminal' },
             { label: '$(search) Scan Workspace for Slurm/Cluster Logs', description: 'Find slurm-*.out and GPU error logs', cmd: 'denpex.scanClusterLogs' },
+            { label: '$(diff) Compare Failed Log with Baseline', description: 'Diff failed run vs healthy baseline', cmd: 'denpex.compareLogs' },
             { label: '$(cloud) Run Cloud Deep Reasoning', description: cloudLabel, cmd: 'denpex.diagnoseCloud' },
             { label: '$(beaker) Try a Demo Failure', description: 'NCCL OOM cascade, Xid 79, vLLM cache', cmd: 'denpex.runSample' },
-            { label: '$(rocket) Unlock 30-Day Scale Trial', description: '50 cloud diagnoses/day for your team', cmd: 'denpex.startInEditorTrial' },
+            { label: '$(rocket) Try Team Free for 30 Days', description: 'Enter your work email in VS Code; activate from the emailed link', cmd: 'denpex.startInEditorTrial' },
+            { label: '$(account) Connect Account', description: 'Approve in your browser; no API key copying', cmd: 'denpex.connectAccount' },
+            { label: '$(history) Shared Cloud History', description: 'Read diagnoses saved by the website, extension, API or MCP', cmd: 'denpex.cloudHistory' },
+            ...(hasKey ? [{ label: '$(sign-out) Disconnect Account', description: 'Revoke this credential; keep local diagnosis', cmd: 'denpex.disconnectAccount' }] : []),
+            { label: '$(key) Set API Key (advanced)', description: 'For self-hosted endpoints or manual setup', cmd: 'denpex.setApiKey' },
+            { label: '$(graph) Anonymous Step Counts', description: 'Optional analytics consent; no logs or email', cmd: 'denpex.manageAnalytics' },
         ], { placeHolder: 'Denpex GPU & ML Crash Diagnostics' });
 
         if (picked && picked.cmd) {
@@ -131,6 +203,9 @@ export async function activate(context: vscode.ExtensionContext) {
         }
         await escalateToCloud(lastLogs, 'cloud-escalation');
     });
+    register('denpex.manageAnalytics', async () => {
+        if (extContext) await manageExtensionFunnelConsent(extContext);
+    });
 
     register('denpex.diagnoseTerminal', diagnoseCollectedLogs);
 
@@ -140,7 +215,11 @@ export async function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage('Select the traceback or GPU/ML error you want Denpex to diagnose.');
             return;
         }
+        const previousDiagnosis = lastDiagnosis;
         await runDiagnosis(editor.document.getText(editor.selection), 'editor-selection');
+        if (lastDiagnosis !== previousDiagnosis) {
+            await vscode.commands.executeCommand('setContext', 'denpex.ownLogDiagnosed', true);
+        }
     });
 
     register('denpex.diagnoseCurrentEditor', async () => {
@@ -240,7 +319,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 : 'This build is missing the bundled local engine. Do not diagnose sensitive logs until you install a complete Marketplace build.',
             'Open Privacy Policy',
         );
-        if (choice) vscode.env.openExternal(vscode.Uri.parse('https://denpex.com/privacy'));
+        if (choice) vscode.env.openExternal(vscode.Uri.parse(attribute(PRIVACY_URL, 'privacy-notice')));
     });
     context.subscriptions.push(
         vscode.window.registerTerminalLinkProvider(
@@ -266,9 +345,19 @@ export async function activate(context: vscode.ExtensionContext) {
             void vscode.window.showInformationMessage('No active diagnosis to copy. Run a diagnosis first.');
         }
     });
-    register('denpex.startTrial', () => vscode.env.openExternal(vscode.Uri.parse(
-        `${PRICING_URL}?source=vscode-extension&utm_source=vscode&utm_medium=extension&utm_campaign=first_diagnosis#trial`,
-    )));
+    register('denpex.startTrial', async () => {
+        if (extContext) await startInEditorTrialFlow(extContext);
+    });
+    register('denpex.connectAccount', async () => {
+        await connectAccount(context);
+        sidebarProvider?.refresh();
+        void refreshStatusBar();
+    });
+    register('denpex.disconnectAccount', async () => {
+        await disconnectAccount(context);
+        sidebarProvider?.refresh();
+        void refreshStatusBar();
+    });
     register('denpex.openRecent', (id: string) => {
         const recent = sidebarProvider?.openRecent(id);
         if (recent) {
@@ -282,13 +371,21 @@ export async function activate(context: vscode.ExtensionContext) {
 
     register('denpex.setApiKey', async () => {
         const entered = await vscode.window.showInputBox({
-            prompt: 'Paste your Denpex API key (dpx_...), create one at denpex.com/dashboard',
+            title: 'Connect Denpex Cloud to VS Code',
+            prompt: 'Create a key in Dashboard > Monitoring > API Keys, copy it once, then paste it here. VS Code stores it in SecretStorage.',
             placeHolder: 'dpx_...',
             ignoreFocusOut: true,
             password: true,
             value: apiKey() || '',
         });
-        if (entered === undefined) return;
+        if (entered === undefined) {
+            if (!apiKey()) {
+                await vscode.window.showInformationMessage(
+                    'To connect an approved Team evaluation or existing eligible plan, run Denpex: Connect Account. Manual API keys are an advanced fallback.',
+                );
+            }
+            return;
+        }
         try {
             await storeApiKey(context.secrets, entered);
         } catch {
@@ -325,7 +422,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 'Redeeming a code needs your Denpex account. Sign in on the website to redeem, or set your API key first.',
                 'Redeem on denpex.com', 'Set API Key');
             if (choice === 'Redeem on denpex.com') {
-                vscode.env.openExternal(vscode.Uri.parse(`${REDEEM_URL}?code=${encodeURIComponent(code)}`));
+                vscode.env.openExternal(vscode.Uri.parse(attribute(`${REDEEM_URL}?code=${encodeURIComponent(code)}`, 'redeem')));
             } else if (choice === 'Set API Key') {
                 vscode.commands.executeCommand('denpex.setApiKey');
             }
@@ -334,22 +431,22 @@ export async function activate(context: vscode.ExtensionContext) {
         try {
             const res = await redeem(code);
             vscode.window.showInformationMessage(
-                `Denpex: ${res.days_remaining}-day ${res.plan} trial activated, up to 50 diagnoses a day. Connect your first node from the dashboard for live fleet findings.`);
+                `Denpex: ${res.days_remaining}-day ${res.plan} trial activated, up to 50 diagnoses a day. Run one resolved incident through the dashboard to verify the result.`);
             void refreshStatusBar();
         } catch (err: any) {
             if (err instanceof ApiError && err.status === 409) {
                 vscode.window.showInformationMessage('Denpex: you already have an active trial.');
             } else if (err instanceof ApiError && err.status === 401) {
                 const choice = await vscode.window.showErrorMessage('Denpex: this API key is not valid for redeeming. Redeem on the website instead?', 'Open denpex.com/redeem');
-                if (choice) vscode.env.openExternal(vscode.Uri.parse(`${REDEEM_URL}?code=${encodeURIComponent(code)}`));
+                if (choice) vscode.env.openExternal(vscode.Uri.parse(attribute(`${REDEEM_URL}?code=${encodeURIComponent(code)}`, 'redeem')));
             } else {
                 vscode.window.showErrorMessage(`Denpex: redeem failed, ${err.message}`);
             }
         }
     });
 
-    register('denpex.openPricing', () => vscode.env.openExternal(vscode.Uri.parse(PRICING_URL)));
-    register('denpex.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(DASHBOARD_URL)));
+    register('denpex.openPricing', () => vscode.env.openExternal(vscode.Uri.parse(attribute(PRICING_URL, 'pricing'))));
+    register('denpex.openDashboard', () => vscode.env.openExternal(vscode.Uri.parse(attribute(DASHBOARD_URL, 'dashboard'))));
     register('denpex.generateRma', () => runGenerateRmaCommand(lastDiagnosis, lastLogs));
 
     // Declarative editor-title menus cannot inspect document contents. Maintain one
@@ -371,22 +468,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     if (!context.globalState.get<boolean>(FIRST_RUN_AHA_KEY, false)) {
         await context.globalState.update(FIRST_RUN_AHA_KEY, true);
-        void vscode.commands.executeCommand(
-            'workbench.action.openWalkthrough',
-            'denpex.denpex-diagnostics#denpex.firstDiagnosis',
-            false,
-        );
-        void vscode.window.showInformationMessage(
-            'Denpex is ready. Diagnose a realistic 64 GPU failure locally in seconds. No account and no upload.',
-            'Diagnose sample now',
-            'Use my log',
-        ).then((choice) => {
-            if (choice === 'Diagnose sample now') {
-                void vscode.commands.executeCommand('denpex.sample.ncclOom');
-            } else if (choice === 'Use my log') {
-                void vscode.commands.executeCommand('denpex.diagnoseCurrentLogs');
-            }
-        });
+        void vscode.commands.executeCommand('workbench.view.extension.denpex');
     }
 }
 
@@ -406,6 +488,10 @@ async function collectLogs(): Promise<CollectedLogs | undefined> {
     }
 
     const items: (vscode.QuickPickItem & { id: string })[] = [];
+
+    if (editor && /\.(log|out|err|txt)$/i.test(editor.document.fileName)) {
+        items.push({ id: 'editor', label: '$(file-text) Use open log file', description: editor.document.fileName.split(/[\\/]/).pop() });
+    }
 
     // 2. Live terminal buffers captured by shell integration.
     const buffers = monitor?.buffers() || new Map<string, string[]>();
@@ -428,14 +514,18 @@ async function collectLogs(): Promise<CollectedLogs | undefined> {
             description: clipboard.slice(0, 60).replace(/\s+/g, ' ') + (clipboard.length > 60 ? '…' : ''),
         });
     }
-    items.push({ id: 'input', label: '$(edit) Paste into an input box' });
+    if (!items.length) {
+        void vscode.window.showInformationMessage('Open a log, select an error, copy a traceback, or run a bundled sample to start a diagnosis.');
+        return undefined;
+    }
 
     const choice = await vscode.window.showQuickPick(items, {
-        placeHolder: 'No text selected in the editor, where are the crash logs?',
+        placeHolder: 'Choose the log source for this diagnosis',
     });
     if (!choice) return undefined;
 
     if (choice.id === 'clipboard') return { text: clipboard };
+    if (choice.id === 'editor' && editor) return { text: documentEvidence(editor.document, MAX_LOG_BYTES) };
     if (choice.id === 'terminal') {
         const [, lines] = [...buffers.entries()][0];
         return { text: lines.join('\n') };
@@ -446,12 +536,7 @@ async function collectLogs(): Promise<CollectedLogs | undefined> {
         return { text: (buffers.get(name) || []).join('\n') };
     }
 
-    const typed = await vscode.window.showInputBox({
-        prompt: 'Paste your crash logs or stack trace here to diagnose with Denpex',
-        placeHolder: 'Traceback (most recent call last)...',
-        ignoreFocusOut: true,
-    });
-    return typed ? { text: typed } : undefined;
+    return undefined;
 }
 
 function coalesceTerminalBuffers(): CollectedLogs | null {
@@ -492,6 +577,14 @@ async function runLocalDiagnosisWithProgress(logs: string, jobName: string): Pro
             openPanel(result);
             void sidebarProvider?.recordLocal(result);
             void refreshStatusBar();
+            if (extContext) {
+                const context = extContext;
+                void offerExtensionFunnelConsent(context).then((allowed) => {
+                    if (allowed) void recordExtensionFunnelEvent(
+                        context, jobName.startsWith('sample:') ? 'sample_result' : 'own_log_result',
+                    );
+                });
+            }
         } catch (err: any) {
             if (token.isCancellationRequested) return;
             const msg = err instanceof LocalEngineError ? err.message : err?.message || String(err);
@@ -525,12 +618,12 @@ async function runDiagnosis(logs: string, jobName: string, topologyMap?: Record<
 
     if (!hasKey && remainingFree <= 0) {
         const choice = await vscode.window.showInformationMessage(
-            'You have completed your 3 free full-power cloud deep analyses. Enter your work email to activate 30 days of Scale (50 deep analyses/day + multi-node reasoning) directly in VS Code, or continue with the offline engine.',
-            'Unlock with Work Email',
+            'Your immediate account-free cloud pass is used. Request a 30-day Team code by work email, then redeem it on denpex.com for 50 deep analyses/day. Local diagnosis stays unlimited.',
+            'Request Trial Code',
             'Diagnose with Offline Engine',
             'Set API Key',
         );
-        if (choice === 'Unlock with Work Email' && extContext) {
+        if (choice === 'Request Trial Code' && extContext) {
             const ok = await startInEditorTrialFlow(extContext);
             if (ok && apiKey()) {
                 await runDiagnosis(logs, jobName, topologyMap);
@@ -565,17 +658,35 @@ async function runDiagnosis(logs: string, jobName: string, topologyMap?: Record<
             }
             openPanel(result);
             void refreshStatusBar();
+            if (extContext) {
+                const context = extContext;
+                void offerExtensionFunnelConsent(context).then((allowed) => {
+                    if (allowed) void recordExtensionFunnelEvent(context, 'cloud_result');
+                });
+            }
         } catch (err: any) {
             if (token.isCancellationRequested) return;
 
+            if (err instanceof ApiError && err.code?.startsWith('TURNSTILE')) {
+                if (extContext) await consumeFreeCloudDiagnosis(extContext);
+                const choice = await vscode.window.showInformationMessage(
+                    'Another anonymous cloud analysis needs a browser check. Open the Denpex console and paste the log there, or request a Team trial code. Your local diagnosis remains available.',
+                    'Open Browser Console', 'Request Trial Code', 'Diagnose Locally',
+                );
+                if (choice === 'Open Browser Console') void vscode.env.openExternal(vscode.Uri.parse(attribute(`${SITE_URL}/console`, 'dashboard')));
+                else if (choice === 'Request Trial Code' && extContext) await startInEditorTrialFlow(extContext);
+                else if (choice === 'Diagnose Locally') await runLocalDiagnosisWithProgress(logs, jobName);
+                return;
+            }
+
             if (err instanceof ApiError && (err.status === 401 || err.status === 429)) {
                 const choice = await vscode.window.showInformationMessage(
-                    'Cloud deep reasoning quota reached. Unlock 30 days of Scale (50 analyses/day) with your work email, or continue with the offline engine.',
-                    'Unlock with Work Email',
+                    'Cloud deep reasoning quota reached. Request a 30-day Team code by work email, then redeem it on denpex.com, or continue with the offline engine.',
+                    'Request Trial Code',
                     'Diagnose with Offline Engine',
                     'Set API Key',
                 );
-                if (choice === 'Unlock with Work Email' && extContext) {
+                if (choice === 'Request Trial Code' && extContext) {
                     const ok = await startInEditorTrialFlow(extContext);
                     if (ok && apiKey()) await runDiagnosis(logs, jobName, topologyMap);
                 } else if (choice === 'Diagnose with Offline Engine') {
@@ -616,11 +727,11 @@ async function escalateToCloud(
         const remaining = getRemainingFreeCloudDiagnoses(extContext);
         if (remaining <= 0) {
             const choice = await vscode.window.showInformationMessage(
-                'You have used your 3 free cloud deep analyses. Unlock 30 days of Scale (50 analyses/day + multi-node reasoning) with your work email.',
-                'Unlock with Work Email',
+                'Your immediate account-free cloud pass is used. Request a 30-day Team code by work email, then redeem it on denpex.com for 50 analyses/day and multi-node reasoning.',
+                'Request Trial Code',
                 'Set API Key',
             );
-            if (choice === 'Unlock with Work Email') await startInEditorTrialFlow(extContext);
+            if (choice === 'Request Trial Code') await startInEditorTrialFlow(extContext);
             else if (choice === 'Set API Key') await vscode.commands.executeCommand('denpex.setApiKey');
             return;
         }
@@ -641,13 +752,29 @@ async function escalateToCloud(
             }
             openPanel(result);
             void refreshStatusBar();
+            if (extContext) {
+                const context = extContext;
+                void offerExtensionFunnelConsent(context).then((allowed) => {
+                    if (allowed) void recordExtensionFunnelEvent(context, 'cloud_result');
+                });
+            }
         } catch (err: any) {
             if (token.isCancellationRequested) return;
+            if (err instanceof ApiError && err.code?.startsWith('TURNSTILE')) {
+                if (extContext) await consumeFreeCloudDiagnosis(extContext);
+                const choice = await vscode.window.showInformationMessage(
+                    'Another anonymous cloud analysis needs a browser check. Open the Denpex console and paste your log there, or request a Team trial code.',
+                    'Open Browser Console', 'Request Trial Code',
+                );
+                if (choice === 'Open Browser Console') void vscode.env.openExternal(vscode.Uri.parse(attribute(`${SITE_URL}/console`, 'dashboard')));
+                else if (choice === 'Request Trial Code' && extContext) await startInEditorTrialFlow(extContext);
+                return;
+            }
             if (err instanceof ApiError && (err.status === 401 || err.status === 429)) {
                 const choice = await vscode.window.showInformationMessage(
-                    'Cloud deep reasoning and live fleet findings need a plan or the 30-day Scale trial. Your local diagnosis stays unlimited.',
-                    'Unlock with Work Email', 'Set API Key');
-                if (choice === 'Unlock with Work Email' && extContext) await startInEditorTrialFlow(extContext);
+                    'Cloud deep reasoning needs a plan or the 30-day Team trial. Live fleet findings need Scale or higher. Your local diagnosis stays unlimited.',
+                    'Request Trial Code', 'Set API Key');
+                if (choice === 'Request Trial Code' && extContext) await startInEditorTrialFlow(extContext);
                 else if (choice === 'Set API Key') vscode.commands.executeCommand('denpex.setApiKey');
                 return;
             }
@@ -708,10 +835,11 @@ function openPanel(result: DiagnoseResponse, focusSection?: string): void {
             case 'escalateCloud':
                 if (lastLogs) await escalateToCloud(lastLogs, 'report-cloud-escalation');
                 break;
+            case 'diagnoseOwnLog':
+                await vscode.commands.executeCommand('denpex.diagnoseCurrentLogs');
+                break;
             case 'startTrial':
-                await vscode.env.openExternal(vscode.Uri.parse(
-                    `${PRICING_URL}?utm_source=vscode&utm_medium=extension&utm_campaign=diagnosis_report`,
-                ));
+                if (extContext) await startInEditorTrialFlow(extContext);
                 break;
         }
     }, focusSection);
@@ -765,7 +893,7 @@ async function refreshStatusBar(): Promise<void> {
             statusItem.text = 'Denpex: Local Engine';
             statusItem.tooltip =
                 'Denpex: Unlimited Local Engine Active (no account required).\n'
-                + 'Enter work email to unlock 30 days of Scale (50 cloud analyses/day). Click for menu.';
+                + 'Request a trial code by work email for 30 days of Team (50 cloud analyses/day). Click for menu.';
         } else {
             statusItem.text = 'Denpex';
             statusItem.tooltip = 'Denpex ML Diagnostics. Run "Denpex: Set API Key" to sync with your dashboard.';
@@ -773,16 +901,18 @@ async function refreshStatusBar(): Promise<void> {
         return;
     }
     try {
-        const [q, trial] = await Promise.all([quota(), redeemStatus().catch(() => null)]);
+        const [q, trial, identity] = await Promise.all([quota(), redeemStatus().catch(() => null), accountStatus()]);
         const planLabel = trial?.active && trial.plan ? `${trial.plan} trial` : (q.plan || 'free');
         const remainingLabel = typeof q.remaining === 'number' && isFinite(q.remaining) ? ` · ${q.remaining} left` : '';
         statusItem.text = `Denpex: ${planLabel}${remainingLabel}`;
         statusItem.tooltip = trial?.active
-            ? `Denpex: ${trial.plan} trial, ${trial.days_remaining} days remaining. Click for menu.`
-            : `Denpex: ${planLabel} plan, synced with your cloud dashboard. Click for menu.`;
-    } catch {
-        statusItem.text = 'Denpex';
-        statusItem.tooltip = 'Denpex ML Diagnostics. Click for menu.';
+            ? `Connected as ${identity.account.email}. ${trial.plan} trial, ${trial.days_remaining} days remaining. Click for menu.`
+            : `Connected as ${identity.account.email}. ${planLabel} plan verified by the server. Cloud diagnoses share your dashboard history. Click for menu.`;
+    } catch (error) {
+        statusItem.text = error instanceof ApiError && error.status === 401 ? 'Denpex: Reconnect' : 'Denpex: Account unverified';
+        statusItem.tooltip = error instanceof ApiError && error.status === 401
+            ? 'The server rejected this credential. Reconnect your account. Local diagnosis remains available.'
+            : 'Account status could not be verified. Retry when the server is reachable. Local diagnosis remains available.';
     }
 }
 

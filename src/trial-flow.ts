@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { apiBase, apiKey, storeApiKey } from './api';
+import { apiBase, apiKey, attribute, REDEEM_URL } from './api';
 import * as https from 'https';
 import * as http from 'http';
+import { recordExtensionFunnelEvent } from './funnel-events';
 
 const CONSUMER_DOMAINS = new Set([
     'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.uk', 'ymail.com',
@@ -12,10 +13,12 @@ const CONSUMER_DOMAINS = new Set([
 ]);
 
 const ANONYMOUS_CLOUD_KEY = 'denpex.anonymousCloudCount';
-const MAX_FREE_ANONYMOUS_CLOUD = 3;
+// The API may require a browser challenge after the first anonymous request.
+// VS Code cannot solve that challenge, so promise only the immediate pass here.
+const MAX_FREE_ANONYMOUS_CLOUD = 1;
 
 export function getRemainingFreeCloudDiagnoses(context: vscode.ExtensionContext): number {
-    if (apiKey()) return 50; // Active API key has plan quota
+    if (apiKey()) return 0; // Anonymous passes only. Authenticated allowance comes from quota().
     const used = context.globalState.get<number>(ANONYMOUS_CLOUD_KEY, 0);
     return Math.max(0, MAX_FREE_ANONYMOUS_CLOUD - used);
 }
@@ -60,20 +63,16 @@ function postJson(urlStr: string, body: Record<string, unknown>): Promise<{ ok: 
             });
         });
         req.on('error', reject);
+        req.on('timeout', () => req.destroy(new Error('Trial request timed out. Try again.')));
         req.write(payload);
         req.end();
     });
 }
 
-export async function startInEditorTrialFlow(context: vscode.ExtensionContext): Promise<boolean> {
-    if (apiKey()) {
-        void vscode.window.showInformationMessage('Denpex: You already have an active API key installed.');
-        return true;
-    }
-
+export async function startInEditorTrialFlow(_context: vscode.ExtensionContext): Promise<boolean> {
     const email = await vscode.window.showInputBox({
-        title: 'Denpex Scale 30-Day Evaluation',
-        prompt: 'Enter your work email to activate 30 days of Scale (50 deep diagnoses/day, multi-node and fleet reasoning):',
+        title: 'Try Team Free for 30 Days',
+        prompt: 'Enter your work email for a single-use link. Established company domains can activate after verification, regardless of mail provider. No card. Uncertain domains can request review.',
         placeHolder: 'alex@yourcompany.com',
         ignoreFocusOut: true,
         validateInput: (val) => {
@@ -82,7 +81,7 @@ export async function startInEditorTrialFlow(context: vscode.ExtensionContext): 
                 return 'Enter a valid email address (e.g. name@company.com)';
             }
             if (isConsumerDomain(trimmed)) {
-                return 'Scale evaluations require a work email domain (e.g. @company.com, not @gmail.com)';
+                return 'Team evaluations require a work email domain (e.g. @company.com, not @gmail.com)';
             }
             return null;
         },
@@ -95,7 +94,7 @@ export async function startInEditorTrialFlow(context: vscode.ExtensionContext): 
     try {
         res = await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'Requesting Denpex Scale evaluation...',
+            title: 'Requesting Denpex Team evaluation...',
             cancellable: false,
         }, async () => postJson(endpoint, { email: email.trim(), source: 'vscode-extension' }));
     } catch (err: any) {
@@ -109,32 +108,21 @@ export async function startInEditorTrialFlow(context: vscode.ExtensionContext): 
         return false;
     }
 
-    const code = await vscode.window.showInputBox({
-        title: 'Enter Trial Code or API Key',
-        prompt: `A single-use code was emailed to ${email.trim()}. Paste your code or your API key:`,
-        placeHolder: 'DPXW-... or dpx_...',
-        ignoreFocusOut: true,
-    });
+    void recordExtensionFunnelEvent(_context, 'team_trial_requested');
 
-    if (!code) return false;
-    const trimmedCode = code.trim();
-
-    if (trimmedCode.startsWith('dpx_')) {
-        await storeApiKey(context.secrets, trimmedCode);
-        void vscode.window.showInformationMessage('Denpex: Scale API key saved. 50 diagnoses/day enabled.');
-        return true;
-    }
-
-    // Save the trial redemption marker in secrets
-    await context.secrets.store('denpex.trialCode', trimmedCode);
     void vscode.window.showInformationMessage(
-        `Denpex: Trial code ${trimmedCode} received. Sign in at denpex.com/redeem?code=${encodeURIComponent(trimmedCode)} to link your team dashboard.`,
-        'Open Redeem Page',
+        `Check ${email.trim()} for your trial link and sign in with that same address. After activation, choose Connect Account here. No card or automatic subscription. Local diagnosis remains available.`,
+        'Connect Account', 'Activation help',
     ).then((choice) => {
-        if (choice === 'Open Redeem Page') {
-            void vscode.env.openExternal(vscode.Uri.parse(`https://denpex.com/redeem?code=${encodeURIComponent(trimmedCode)}`));
+        if (choice === 'Connect Account') {
+            void vscode.commands.executeCommand('denpex.connectAccount');
+        } else if (choice === 'Activation help') {
+            void vscode.window.showInformationMessage('Open your emailed link within 7 days of the first request. Company verification is required; uncertain domains need support review. For an expired link or review, contact support@denpex.com.', 'Open Redeem Page').then((action) => {
+                if (action === 'Open Redeem Page') {
+            void vscode.env.openExternal(vscode.Uri.parse(attribute(REDEEM_URL, 'trial')));
+                }
+            });
         }
     });
-
     return true;
 }

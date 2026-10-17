@@ -218,6 +218,10 @@
       {
         "command": "denpex.showStatusBarMenu",
         "title": "Denpex: Quick Diagnostics Menu"
+      },
+      {
+        "command": "denpex.compareLogs",
+        "title": "Denpex: Compare Failed Log with Baseline Log (Diff)"
       }
     ],
     "keybindings": [

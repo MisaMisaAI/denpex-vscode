@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { DASHBOARD_URL, DiagnoseResponse } from './api';
+import { DASHBOARD_URL, SITE_URL, attribute, DiagnoseResponse } from './api';
 
 export function escapeHtml(value: unknown): string {
     return String(value ?? '')
@@ -55,12 +55,15 @@ function str(value: unknown): string | undefined {
     return trimmed.length ? trimmed : undefined;
 }
 
-function actionBlock(label: string, command: string | null | undefined, kind: 'exec' | 'copy' = 'exec'): string {
+function actionBlock(label: string, command: string | null | undefined, kind: 'exec' | 'copy' = 'copy'): string {
     if (!command) return '';
+    const unavailable = /^unavailable:/i.test(command);
     const btns = kind === 'exec'
-        ? `<button class="btn" data-cmd="runInTerminal" data-text="${escapeHtml(command)}">▶ Execute</button><button class="btn ghost" data-cmd="insertInTerminal" data-text="${escapeHtml(command)}" title="Insert at terminal prompt without executing">$ Insert</button>`
+        ? `<button type="button" class="btn" data-cmd="runInTerminal" data-text="${escapeHtml(command)}">▶ Execute</button><button type="button" class="btn ghost" data-cmd="insertInTerminal" data-text="${escapeHtml(command)}" title="Insert at terminal prompt without executing">$ Insert</button>`
         : '';
-    return `<div class="action"><div class="action-head"><strong>${escapeHtml(label)}</strong><span class="btns">${btns}<button class="btn ghost" data-cmd="copy" data-text="${escapeHtml(command)}">Copy</button></span></div>${pre(command)}</div>`;
+    const copy = unavailable ? '' : `<button type="button" class="btn ghost" data-cmd="copy" data-text="${escapeHtml(command)}">Copy</button>`;
+    const body = kind === 'exec' ? pre(command) : `<p class="action-copy">${escapeHtml(command)}</p>`;
+    return `<div class="action"><div class="action-head"><strong>${escapeHtml(label)}</strong><span class="btns">${btns}${copy}</span></div>${body}</div>`;
 }
 
 function confidenceBar(confidence: number): string {
@@ -116,7 +119,10 @@ export function generateIncidentMarkdown(d: DiagnoseResponse): string {
         lines.push('```');
     }
 
-    lines.push('\n*Diagnosed with Denpex GPU & ML Crash Diagnostics (https://denpex.com)*');
+    // This report is pasted by the user into Slack or a GitHub PR, so this link is the
+    // only one that reaches people who have not installed anything. Attributed for that
+    // reason: it is the extension's single measurable word-of-mouth surface.
+    lines.push(`\n*Diagnosed with Denpex GPU & ML Crash Diagnostics (${attribute(SITE_URL, 'incident-report')})*`);
     return lines.join('\n');
 }
 
@@ -127,9 +133,7 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
 
     const tierLabel = meta.tier === 4 ? 'Deep Analysis' : meta.tier === 2 ? 'Community Match' : meta.tier === 1.5 ? 'Encyclopedia' : meta.tier === 1.6 ? 'Keyword Match' : 'Deterministic Engine';
     const badges = [
-        meta.failureType ? `<span class="badge type">${escapeHtml(meta.failureType)}</span>` : '',
         `<span class="badge">${escapeHtml(tierLabel)}</span>`,
-        meta.source ? `<span class="badge dim">${escapeHtml(meta.source)}</span>` : '',
         d.costHeadline ? `<span class="badge cost">${escapeHtml(d.costHeadline)}</span>` : '',
     ].filter(Boolean).join(' ');
     const isLocal = d.source === 'canonical-offline'
@@ -137,14 +141,14 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
         || /offline|local/i.test(String(d.source || meta.source || ''));
     const nextActionHtml = isLocal
         ? `<div class="next-actions" aria-label="Optional next actions">
-            <button class="btn cloud" data-cmd="escalateCloud">🚀 Run Cloud Deep Reasoning (3 free passes)</button>
-            <button class="btn ghost" data-cmd="copyIncidentReport">📋 Copy Slack/PR Report</button>
-            <button class="btn ghost" data-cmd="startInEditorTrial">Unlock 30-Day Scale Trial</button>
-            <span class="meta">Local diagnosis is free, unlimited, and private. Cloud adds multi-node reasoning across cluster hosts.</span>
+            <div class="next-heading"><strong>Continue investigating</strong><span class="meta">Local diagnosis is free, unlimited, and private.</span></div>
+            <button type="button" class="btn" data-cmd="diagnoseOwnLog">Try my own log</button>
+            <button type="button" class="btn ghost" data-cmd="copyIncidentReport">Copy Slack/PR Report</button>
+            <details class="cloud-option"><summary>Need deeper analysis?</summary><p class="meta">Cloud review sends this log to Denpex only if you choose it.</p><button type="button" class="btn cloud" data-cmd="escalateCloud">Try one free cloud review</button><button type="button" class="btn ghost" data-cmd="startInEditorTrial">Try Team free for 30 days</button></details>
         </div>`
         : `<div class="next-actions">
-            <button class="btn ghost" data-cmd="copyIncidentReport">📋 Copy Slack/PR Report</button>
-            <button class="btn ghost" data-cmd="open" data-text="${DASHBOARD_URL}">Save or share in Dashboard</button>
+            <button type="button" class="btn ghost" data-cmd="copyIncidentReport">📋 Copy Slack/PR Report</button>
+            <button type="button" class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(DASHBOARD_URL, 'dashboard'))}">Save or share in Dashboard</button>
         </div>`;
 
     // ── Traceback / causal chain analysis ──
@@ -155,8 +159,8 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             <div>${escapeHtml(c.event || '')}</div>
             ${c.evidence ? `<code class="evidence-line">${escapeHtml(c.evidence)}</code>` : ''}
         </li>`).join('')}</ol>` : '';
-    const evidence = Array.isArray(fix.evidence) ? fix.evidence.filter(Boolean) : [];
-    const evidenceHtml = evidence.length ? `<ul>${evidence.map((e) => `<li><code>${escapeHtml(e)}</code></li>`).join('')}</ul>` : '';
+    const evidence = Array.isArray(fix.evidence) ? [...new Set(fix.evidence.filter(Boolean))] : [];
+    const evidenceHtml = evidence.length ? `<ul>${evidence.slice(0, 6).map((e) => `<li><code>${escapeHtml(e)}</code></li>`).join('')}</ul>${evidence.length > 6 ? `<details><summary>Show ${evidence.length - 6} more evidence lines</summary><ul>${evidence.slice(6).map((e) => `<li><code>${escapeHtml(e)}</code></li>`).join('')}</ul></details>` : ''}` : '';
     const tracebackBody = (chainHtml || evidenceHtml)
         ? `${chainHtml}${evidenceHtml ? `<h3>Matched evidence</h3>${evidenceHtml}` : ''}` : '';
 
@@ -167,6 +171,17 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
 
     // ── Confidence detail ──
     const fr = d.forensicReport || {};
+    const artifacts = Array.isArray(fr.diagnosticArtifacts) ? fr.diagnosticArtifacts.slice(0, 5) : [];
+    const artifactHtml = artifacts.length ? section('GPU artifact measurements', artifacts.map((artifact: any) => {
+        const names: Record<string, string> = { 'flight-recorder': 'Collective flight recorder', 'memory-snapshot': 'CUDA memory snapshot',
+            nsight: 'Nsight kernel trace', checkpoints: 'Checkpoint candidates', stragglers: 'Aligned rank timings' };
+        const devices = artifact.module === 'memory-snapshot' && Array.isArray(artifact.metrics?.devices) ? artifact.metrics.devices.slice(0, 256) : [];
+        const mib = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? `${(value / 1048576).toFixed(2)} MiB` : 'Unknown';
+        const table = devices.length ? `<div role="region" tabindex="0" aria-label="CUDA memory measurements" style="overflow:auto"><table><caption>Per-device allocator memory</caption><thead><tr><th scope="col">GPU</th><th scope="col">Reserved</th><th scope="col">Requested</th><th scope="col">Awaiting free</th><th scope="col">Inactive</th></tr></thead><tbody>${devices.map((device: any) => `<tr><td>${escapeHtml(device.device)}</td><td>${mib(device.reservedBytes)}</td><td>${mib(device.requestedBytes)}</td><td>${mib(device.awaitingFreeBytes)}</td><td>${mib(device.inactiveBytes)}</td></tr>`).join('')}</tbody></table></div>` : pre(JSON.stringify(artifact.metrics || {}, null, 2));
+        const limitations = Array.isArray(artifact.limitations) ? `<ul>${artifact.limitations.map((item: unknown) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : '';
+        const findings = Array.isArray(artifact.findings) ? `<ul>${artifact.findings.map((finding: any) => `<li>${escapeHtml(finding.detail)}</li>`).join('')}</ul>` : '';
+        return `<p><strong>${escapeHtml(names[artifact.module] || 'GPU artifact')}</strong>: ${artifact.status === 'COMPLETE' ? 'Local inspection completed' : 'Inspection incomplete'}.</p>${table}${findings}${limitations}`;
+    }).join(''), true, 'gpu-artifacts') : '';
     const confDetail = fr.confidenceDetail || {};
     const confParts: string[] = [];
     // CALIBRATED value only. This read `meta.confidence`, the raw score, which
@@ -218,13 +233,30 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     // ── Recommended actions ladder ──
     const steps = Array.isArray(fix.steps) && fix.steps.length ? `<h3>Full fix procedure</h3><ol>${fix.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ol>` : '';
     const planActions = d.executionPlan?.actions || [];
+    const planActionKind = str(d.resumeSafetyNote) ? 'copy' : 'exec';
     const planHtml = planActions.length ? `<h3>Closed-loop remediation plan</h3>${planActions.map((a) =>
-        actionBlock(`${a.action || 'STEP'}, ${a.reason || ''}`, a.command)).join('')}` : '';
+        actionBlock(`${a.action || 'STEP'}, ${a.reason || ''}`, a.command, planActionKind)).join('')}` : '';
+
+    const textToScan = `${d.meta?.failureType || ''} ${fix.summary || ''} ${Array.isArray(fix.evidence) ? fix.evidence.join(' ') : ''}`.toLowerCase();
+    const envActions: string[] = [];
+    if (textToScan.includes('nccl') || textToScan.includes('timeout') || textToScan.includes('watchdog') || textToScan.includes('processgroup')) {
+        envActions.push(actionBlock('Distributed Debugging', 'export TORCH_DISTRIBUTED_DEBUG=DETAIL'));
+        envActions.push(actionBlock('NCCL Socket Fallback', 'export NCCL_IB_DISABLE=1 NCCL_DEBUG=INFO'));
+    }
+    if (textToScan.includes('out of memory') || textToScan.includes('oom')) {
+        envActions.push(actionBlock('PyTorch Allocator Fragmentation Guard', 'export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128'));
+    }
+    if (textToScan.includes('xid') || textToScan.includes('bus error') || textToScan.includes('fallen off')) {
+        envActions.push(actionBlock('Hardware ECC & State Probe', 'nvidia-smi -q -d ECC,VOLTAGE,TEMPERATURE'));
+    }
+    const envMatrixHtml = envActions.length ? `<h3>Remediation Environment Flags</h3>${envActions.join('')}` : '';
+
     const actionsBody = [
         actionBlock('Primary fix', fix.action),
         actionBlock('If that doesn\'t work', fix.fallbackAction),
         actionBlock('Emergency mitigation', fix.emergencyAction),
         actionBlock('Verify the fix', fix.verificationCommand),
+        envMatrixHtml,
         fix.prevention ? `<div class="action"><strong>Prevention</strong><p>${escapeHtml(fix.prevention)}</p></div>` : '',
         steps,
         planHtml,
@@ -315,7 +347,7 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     ].filter(Boolean).join('');
 
     const remainingNote = typeof d.remaining === 'number' && isFinite(d.remaining)
-        ? `<p class="meta">${d.remaining} free diagnos${d.remaining === 1 ? 'is' : 'es'} remaining today · <a href="#" data-cmd="open" data-text="${DASHBOARD_URL}">denpex.com/dashboard</a></p>`
+        ? `<p class="meta">${d.remaining} free diagnos${d.remaining === 1 ? 'is' : 'es'} remaining today · <a href="#" data-cmd="open" data-text="${escapeHtml(attribute(DASHBOARD_URL, 'panel'))}">denpex.com/dashboard</a></p>`
         : '';
 
     return `<!DOCTYPE html>
@@ -324,14 +356,14 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${n}';">
 <style>
-    body { font-family: var(--vscode-font-family); padding: 16px 20px; color: var(--vscode-editor-foreground); background-color: var(--vscode-editor-background); line-height: 1.45; }
-    h1 { font-size: 1.25em; margin: 0 0 6px; }
+    body { font-family: var(--vscode-font-family); padding: 22px max(20px, calc((100% - 960px) / 2)); color: var(--vscode-editor-foreground); background-color: var(--vscode-editor-background); line-height: 1.5; }
+    h1 { font-size: 1.5em; margin: 0 0 6px; }
     h3 { font-size: 0.95em; margin: 12px 0 4px; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78em; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); margin-right: 4px; }
-    .badge.type { background: var(--vscode-editorWarning-foreground); color: var(--vscode-editor-background); font-weight: 600; }
+    .badge.type { background: #CC5A37; color: #0A0A0A; font-weight: 600; text-transform: capitalize; }
     .badge.cost { background: var(--vscode-editorError-foreground); color: var(--vscode-editor-background); }
     .badge.dim.dim { opacity: 0.7; }
-    .box { border: 1px solid var(--vscode-widget-border); padding: 12px 14px; border-radius: 6px; margin: 12px 0; background: var(--vscode-editorWidget-background); }
+    .box { border: 1px solid var(--vscode-widget-border); border-left: 3px solid #CC5A37; padding: 16px 18px; border-radius: 6px; margin: 16px 0; background: var(--vscode-editorWidget-background); }
     details { border: 1px solid var(--vscode-widget-border); border-radius: 6px; margin: 8px 0; background: var(--vscode-editorWidget-background); }
     summary { cursor: pointer; padding: 9px 14px; font-weight: 600; user-select: none; }
     summary:hover { background: var(--vscode-list-hoverBackground); }
@@ -347,10 +379,16 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     .choice-list li { display: flex; align-items: center; gap: 8px; }
     .choice-btn { margin-left: 0 !important; font-size: 0.9em; padding: 4px 10px; }
     .choice-recommended { border: 1px solid var(--vscode-testing-iconPassed); background: var(--vscode-button-background); }
-    .next-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; padding: 10px 12px; border: 1px solid var(--vscode-focusBorder); border-radius: 6px; }
+    .next-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 20px 0; padding: 14px 16px; border: 1px solid var(--vscode-widget-border); border-radius: 6px; }
     .next-actions .btn { margin-left: 0; }
+    .next-heading { display: flex; flex-direction: column; width: 100%; margin-bottom: 4px; }
+    .cloud-option { width: 100%; margin-top: 10px; }
+    .cloud-option p { margin: 8px 14px; }
+    .cloud-option .btn { margin: 0 0 10px 14px; }
     .action { margin: 10px 0; }
     .action-head { display: flex; justify-content: space-between; align-items: center; }
+    .action-copy { margin: 5px 0 14px; padding: 11px 12px; border-radius: 4px; background: var(--vscode-textCodeBlock-background); }
+    .section-body code { overflow-wrap: anywhere; }
     .chain { list-style: none; padding-left: 0; }
     .chain li { border-left: 3px solid var(--vscode-widget-border); padding: 4px 10px; margin: 6px 0; }
     .chain-root-cause { border-left-color: var(--vscode-editorError-foreground) !important; }
@@ -360,7 +398,7 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     .advisory { border-left: 3px solid var(--vscode-editorInfo-foreground); padding: 6px 10px; margin: 8px 0; background: var(--vscode-textBlockQuote-background); }
     .advisory-critical { border-left-color: var(--vscode-editorError-foreground); }
     .advisory-warning { border-left-color: var(--vscode-editorWarning-foreground); }
-    .conf { display: flex; align-items: center; gap: 10px; margin: 6px 0 10px; }
+    .conf { display: flex; align-items: center; gap: 10px; margin: 6px 0 10px; max-width: 300px; }
     .conf-track { flex: 1; height: 8px; border-radius: 4px; background: var(--vscode-widget-border); overflow: hidden; }
     .conf-fill { height: 100%; }
     .meta { color: var(--vscode-descriptionForeground); }
@@ -368,7 +406,7 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
 </style>
 </head>
 <body>
-    <h1>Denpex Forensic Diagnosis</h1>
+    <h1>Diagnosis</h1>
     <p>${badges}</p>
     ${typeof displayConfidence === 'number'
         ? confidenceBar(displayConfidence)
@@ -377,7 +415,7 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
             : ''}
 
     <div class="box">
-        <h2 style="margin-top:0;font-size:1em">Root Cause</h2>
+        <h2 style="margin-top:0;font-size:1em">${artifacts.length ? 'Observed artifact findings' : 'Likely cause'}</h2>
         <p>${escapeHtml(fix.summary || 'No root cause identified.')}</p>
     </div>
 
@@ -386,23 +424,25 @@ export function renderDiagnosis(d: DiagnoseResponse, focusSection?: string): str
     ${prior}
     ${questionsHtml}
 
-    ${nextActionHtml}
+    ${artifactHtml}
     ${section('Recommended Actions', actionsBody || pre(fix.action || 'Check logs for details.'), true, 'recommended-actions')}
+    ${section('Evidence and causal chain', tracebackBody, false, 'causal-chain')}
+    ${nextActionHtml}
     ${trailBody ? section('Why this answer (audit trail)', trailBody) : ''}
-    ${section('Traceback & Causal Chain Analysis', tracebackBody, focusSection === 'causal-chain', 'causal-chain')}
     ${section('Competing Hypotheses', hypsHtml)}
     ${section('Confidence & Calibration', confBody)}
     ${section('Hardware Telemetry', hwBody)}
     ${section('Advisories', advBody)}
     ${section('Alternative Diagnoses', altBody)}
     ${section('Sources & Research', refBody)}
+    ${meta.failureType ? section('Technical details', `<p>Pattern: ${escapeHtml(meta.failureType)}</p>${meta.source ? `<p>Engine source: ${escapeHtml(meta.source)}</p>` : ''}`) : ''}
 
     ${resumeFromHtml}
     ${resumeSafety ? `<div class="advisory advisory-critical"><strong>⛔ Do not restart until you have read the checkpoint safety warning above.</strong></div>` : ''}
     <p class="meta">
         <button class="btn${resumeSafety ? ' ghost' : ''}" data-cmd="restartCheckpoint">⟳ Restart from Checkpoint${resumeSafety ? ' (unsafe, see warning)' : ''}</button>
         <button class="btn ghost" data-cmd="generateRma">Generate Hardware RMA</button>
-        <button class="btn ghost" data-cmd="open" data-text="${DASHBOARD_URL}">Open Dashboard</button>
+        <button class="btn ghost" data-cmd="open" data-text="${escapeHtml(attribute(DASHBOARD_URL, 'dashboard'))}">Open Dashboard</button>
     </p>
     ${remainingNote}
 
@@ -442,16 +482,16 @@ export function showDiagnosisPanel(
     focusSection?: string,
 ): vscode.WebviewPanel {
     if (currentPanel) {
-        currentPanel.title = `Denpex: ${d.meta?.failureType || 'Diagnosis'}`;
+        currentPanel.title = 'Denpex: Diagnosis';
         currentPanel.webview.html = renderDiagnosis(d, focusSection);
-        currentPanel.reveal(vscode.ViewColumn.Beside, true);
+        currentPanel.reveal(vscode.ViewColumn.Active, true);
         return currentPanel;
     }
 
     const panel = vscode.window.createWebviewPanel(
         'denpexDiagnosis',
-        `Denpex: ${d.meta?.failureType || 'Diagnosis'}`,
-        vscode.ViewColumn.Beside,
+        'Denpex: Diagnosis',
+        vscode.ViewColumn.Active,
         { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] },
     );
     currentPanel = panel;
